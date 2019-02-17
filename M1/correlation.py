@@ -56,7 +56,23 @@ def compute_out_size(in_size, mod):
     return int(np.prod(f.size()[1:]))
 
 
-def get_feature_map(model, layer, image, size):
+def _get_feature_map_size(model, layer, image):
+    size = [0]
+
+    def forward_hook(layer, input, output):
+        print('get size')
+        size[0] = output.size()
+
+
+    hook = layer.register_forward_hook(forward_hook)
+
+    model(image)
+    hook.remove()
+    return size[0]
+
+
+
+def get_feature_map(model, layer, image):
     """Short summary.
 
     Parameters
@@ -76,9 +92,11 @@ def get_feature_map(model, layer, image, size):
         Description of returned object.
 
     """
-    feature_map = torch.zeros(size)
+
+    feature_map = torch.zeros()
 
     def forward_hook(layer, input, output):
+        feature_map = torch.zeros(output.size())
         feature_map.copy_(output.data)
 
     hook = layer.register_forward_hook(forward_hook)
@@ -94,10 +112,10 @@ if __name__ == '__main__':
     img = Image.open(img_path)
     totensor = transforms.ToTensor()
     scaler = transforms.Resize((224, 224))
-    transformed_img = Variable(totensor(scaler(img)).unsqueeze(0))
+    transformed_img = Variable(totensor(scaler(img)))
     net = models.alexnet(pretrained=True)
     net.eval()
-    output = net(transformed_img)
-    size = compute_out_size(transformed_img.size(), net)
+    # size = compute_out_size(transformed_img.size(), net)
     layer1 = net._modules.get('features')[0]
-    print(get_feature_map(net, layer1, t2_img, size))
+    print(_get_feature_map_size(net, layer1, transformed_img.unsqueeze(0)))
+    # print(get_feature_map(net, layer1, transformed_img.unsqueeze(0)))
