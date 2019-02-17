@@ -18,6 +18,7 @@ import cca_core
 from PIL import Image
 from torch.autograd import Variable
 from torchvision import transforms
+from cca_core import get_cca_similarity
 
 
 # transform1 = transforms.Compose([
@@ -35,45 +36,12 @@ def _plot_helper(arr, xlabel, ylabel):
     plt.grid()
 
 
-def compute_out_size(in_size, mod):
-    """Compute output size of Module `mod` given an input with size `in_size`.
 
-    Parameters
-    ----------
-    in_size : type
-        Description of parameter `in_size`.
-    mod : type
-        Description of parameter `mod`.
-
-    Returns
-    -------
-    type
-        Description of returned object.
-
-    """
-
-    f = mod.forward(Variable(torch.Tensor(1, *in_size)))
-    return int(np.prod(f.size()[1:]))
-
-
-def _get_feature_map_size(model, layer, image):
-    size = [0]
-
-    def forward_hook(layer, input, output):
-        print('get size')
-        size[0] = output.size()
-
-
-    hook = layer.register_forward_hook(forward_hook)
-
-    model(image)
-    hook.remove()
-    return size[0]
 
 
 
 def get_feature_map(model, layer, image):
-    """Short summary.
+    """Returns the feature map .
 
     Parameters
     ----------
@@ -93,18 +61,39 @@ def get_feature_map(model, layer, image):
 
     """
 
-    feature_map = torch.zeros()
+    result = [None]
 
     def forward_hook(layer, input, output):
         feature_map = torch.zeros(output.size())
         feature_map.copy_(output.data)
+        result[0] = feature_map
 
     hook = layer.register_forward_hook(forward_hook)
 
     model(image)
     hook.remove()
 
-    return feature_map
+    return result[0]
+
+def correlate_layers(feature_map1, feature_map2):
+    """Short summary.
+
+    Parameters
+    ----------
+    feature_map1 : type
+        Description of parameter `feature_map1`.
+    feature_map2 : type
+        Description of parameter `feature_map2`.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
+    """
+    print(get_cca_similarity(feature_map1, feature_map2, epsilon=0., threshold=0.98, compute_coefs=True, compute_dirns=False, verbose=True))
+
+
 
 
 if __name__ == '__main__':
@@ -117,5 +106,10 @@ if __name__ == '__main__':
     net.eval()
     # size = compute_out_size(transformed_img.size(), net)
     layer1 = net._modules.get('features')[0]
-    print(_get_feature_map_size(net, layer1, transformed_img.unsqueeze(0)))
+    # print(_get_feature_map_size(net, layer1, transformed_img.unsqueeze(0)))
     # print(get_feature_map(net, layer1, transformed_img.unsqueeze(0)))
+    featureA = get_feature_map(net, layer1, transformed_img.unsqueeze(0))
+    featureB = get_feature_map(net, layer1, transformed_img.unsqueeze(0))
+    print("what")
+    print(featureA.shape)
+    correlate_layers(featureA, featureB)
