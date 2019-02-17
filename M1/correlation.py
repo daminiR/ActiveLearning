@@ -7,6 +7,7 @@ import os
 import copy
 import torch.optim as lr_scheduler
 from torchvision import models
+import torchvision.transforms as transforms
 import os, sys
 from matplotlib import pyplot as plt
 import numpy as np
@@ -16,6 +17,8 @@ import gzip
 import cca_core
 from PIL import Image
 from torch.autograd import Variable
+from torchvision import transforms
+
 
 def _plot_helper(arr, xlabel, ylabel):
     plt.plot(arr, lw=2.0)
@@ -24,6 +27,13 @@ def _plot_helper(arr, xlabel, ylabel):
     plt.grid()
 
 
+def compute_out_size(in_size, mod):
+    """
+    Compute output size of Module `mod` given an input with size `in_size`.
+    """
+
+    f = mod.forward(Variable(torch.Tensor(1, *in_size)))
+    return int(np.prod(f.size()[1:]))
 
 
 def get_feature_map(model, layer, image, size):
@@ -53,7 +63,7 @@ def get_feature_map(model, layer, image, size):
 
     hook = layer.register_forward_hook(forward_hook)
 
-    model(image)git add -A
+    model(image)
     hook.remove()
 
     return feature_map
@@ -62,8 +72,13 @@ def get_feature_map(model, layer, image, size):
 if __name__ == '__main__':
     img_path ='Data/dog.jpg'
     img = Image.open(img_path)
-    trans = transform.ToPIL
-    transformed_img = Variable(torch.tensor(img))
+    totensor = transforms.ToTensor()
+    scaler = transforms.Scale((224, 224))
+    # t_img = Variable((to_tensor(scaler(img)).unsqueeze(0))
+    transformed_img = Variable(totensor(scaler(img)))
     net = models.resnet18(pretrained=True)
-    layer = net.conv3()
-    print(layer, sep=' ', end='n', file=sys.stdout, flush=False)
+    compute_out_size(transformed_img.size(), net))
+
+    # print(net)
+    # layer1 = net._modules.get('layer1')
+    # print(layer1)
