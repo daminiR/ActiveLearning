@@ -20,6 +20,14 @@ from torch.autograd import Variable
 from torchvision import transforms
 
 
+# transform1 = transforms.Compose([
+#         transforms.Resize(224),
+#         transforms.RandomHorizontalFlip(),
+#         transforms.ToTensor(),
+#         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+#     ])
+#
+
 def _plot_helper(arr, xlabel, ylabel):
     plt.plot(arr, lw=2.0)
     plt.xlabel(xlabel)
@@ -28,8 +36,20 @@ def _plot_helper(arr, xlabel, ylabel):
 
 
 def compute_out_size(in_size, mod):
-    """
-    Compute output size of Module `mod` given an input with size `in_size`.
+    """Compute output size of Module `mod` given an input with size `in_size`.
+
+    Parameters
+    ----------
+    in_size : type
+        Description of parameter `in_size`.
+    mod : type
+        Description of parameter `mod`.
+
+    Returns
+    -------
+    type
+        Description of returned object.
+
     """
 
     f = mod.forward(Variable(torch.Tensor(1, *in_size)))
@@ -73,12 +93,11 @@ if __name__ == '__main__':
     img_path ='Data/dog.jpg'
     img = Image.open(img_path)
     totensor = transforms.ToTensor()
-    scaler = transforms.Scale((224, 224))
-    # t_img = Variable((to_tensor(scaler(img)).unsqueeze(0))
-    transformed_img = Variable(totensor(scaler(img)))
-    net = models.resnet18(pretrained=True)
-    compute_out_size(transformed_img.size(), net))
-
-    # print(net)
-    # layer1 = net._modules.get('layer1')
-    # print(layer1)
+    scaler = transforms.Resize((224, 224))
+    transformed_img = Variable(totensor(scaler(img)).unsqueeze(0))
+    net = models.alexnet(pretrained=True)
+    net.eval()
+    output = net(transformed_img)
+    size = compute_out_size(transformed_img.size(), net)
+    layer1 = net._modules.get('features')[0]
+    print(get_feature_map(net, layer1, t2_img, size))
