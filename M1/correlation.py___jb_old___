@@ -107,13 +107,13 @@ def correlate_layers(feature_map1, feature_map2):
                                                          compute_dirns=False,
                                                          verbose=True)
     print(result.keys())
-    _plot_helper(result["cca_coef1"], "CCA Coef idx", "coef value")
+    # _plot_helper(result["cca_coef1"], "CCA Coef idx", "coef value")
     pp(result["cca_coef1"])
 
 
 # python3 correlation.py >> log.txt
 
-
+# ~/.torch/models/
 
 if __name__ == '__main__':
     img_path ='Data/dog.jpg'
