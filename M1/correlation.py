@@ -4,25 +4,26 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 import os
+from os import path
 import copy
 import torch.optim as lr_scheduler
 from torchvision import models
 import torchvision.transforms as transforms
-import os, sys
+import sys
 from matplotlib import pyplot as plt
 import numpy as np
 import pickle
 import pandas
 import gzip
-import cca_core
 from PIL import Image
 from torch.autograd import Variable
 from torchvision import transforms
-from cca_core import get_cca_similarity
+from CCA.cca_core import get_cca_similarity
 from pprint import pprint as pp
 
 
-
+sys.path.append(path.dirname(path.abspath(__file__)))
+print(sys.path)
 
 def _plot_helper(arr, xlabel, ylabel, title, output_file):
     x_range = np.arange(len(arr)); pp(x_range)
