@@ -23,13 +23,6 @@ from pprint import pprint as pp
 
 
 
-# transform1 = transforms.Compose([
-#         transforms.Resize(224),
-#         transforms.RandomHorizontalFlip(),
-#         transforms.ToTensor(),
-#         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-#     ])
-#
 
 def _plot_helper(arr, xlabel, ylabel, title, output_file):
     x_range = np.arange(len(arr)); pp(x_range)
@@ -108,18 +101,15 @@ def correlate_layers(feature_map1, feature_map2, title, output_file):
 
     print(features_i.shape)
     print(features_j.shape)
-    # print(fourier_ccas(feature_map1, featureB, return_coefs=True, compute_dirns=True,verbose=False))
 
     result = get_cca_similarity(features_i.T, features_j.T, epsilon=1e-10,
                                                          compute_coefs=True,
                                                          compute_dirns=False,
                                                          verbose=True)
-    # print(result["cca_coef1"])
     _plot_helper(result["cca_coef1"], "CCA Coef idx", "coef value",title,  output_file)
     pp(result["cca_coef1"])
 
 
-# python3 correlation.py >> log.txt
 
 
 
