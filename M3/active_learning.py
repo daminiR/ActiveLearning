@@ -7,7 +7,6 @@ from torchvision import datasets, models, transforms
 import time
 import os
 import copy
-from scipy import stats
 from torch.autograd import Variable
 
 start_time = time.time()
@@ -26,7 +25,7 @@ data_transforms = {
     ])
 }
 
-data_dir = '/home/data/ilsvrc/ILSVRC/ILSVRC2012_Classification'
+data_dir = '/home/nobelletay/centers'
 image_datasets = {x: datasets.ImageFolder(os.path.join(data_dir, x), data_transforms["train"]) for x in phases}
 class_names = image_datasets['train'].classes
 num_class = len(list(class_names))
@@ -38,16 +37,16 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 class Net(nn.Module):
     def __init__(self, dropout=False, weightDecay=0):
         super(Net, self).__init__()
-	'''
+        '''
         self.fc1 = nn.Linear(11, 11) # 2 Input noses, 50 in middle layers
         self.do1 = nn.Dropout(p=0.2)
         self.rl1 = nn.Sigmoid()
         self.fc2 = nn.Linear(11, 3)
         self.do2 = nn.Dropout(p=0.2)
         self.smout = nn.Softmax(dim=1)
-	'''
+        '''
 
-	self = models.vgg16(pretrained=True)
+        self = models.vgg16(pretrained=True)
 
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = optim.Adam(self.parameters(), lr=0.01, weight_decay=0)
@@ -80,7 +79,6 @@ class Net(nn.Module):
 
 
     def train(self, numEpochs, train_set, train, test):
-	phase = "train"
         inputs, labels = train
 
         inputs = Variable(torch.FloatTensor(inputs).cuda())
@@ -91,7 +89,7 @@ class Net(nn.Module):
             self.log(epoch, train, test)
                 
     def activetrain(self, activeUpdateRate, batchSize, numEpochs, train, test):
-	trainings = int(numEpochs/activeUpdateRate)
+        trainings = int(numEpochs/activeUpdateRate)
         currentEpoch = 0
 
         for i in range(trainings):
@@ -120,7 +118,6 @@ class Net(nn.Module):
                 self.log(currentEpoch, train, test)
             
     def randomtrain(self, batchSize, numEpochs, train, test):
-	phase = "train"
         shuffledTrainSet = np.array(copy.deepcopy(train))
         for epoch in range(numEpochs):
             np.random.shuffle(shuffledTrainSet)
@@ -224,18 +221,18 @@ vgg16.activetrain(1, 4, 100, dataloaders["train"], dataloaders["test"])
 
 with open("train_acc.txt", "r") as f:
     for item in vgg16.trainOverTimeAccuracy:
-	f.write("{}\n".format(item))
+        f.write("{}\n".format(item))
 
 with open("train_loss.txt", "r") as f:
     for item in vgg16.trainOverTimeLoss:
-	f.write("{}\n".format(item))
+        f.write("{}\n".format(item))
 
 with open("test_acc.txt", "r") as f:
     for item in vgg16.testOverTimeAccuracy:
-	f.write("{}\n".format(item))
+        f.write("{}\n".format(item))
 
 with open("test_loss.txt", "r") as f:
     for item in vgg16.testOverTimeLoss:
-	f.write("{}\n".format(item))
+        f.write("{}\n".format(item))
 
 print('Execution time: {}s'.format(time.time() - start_time))
