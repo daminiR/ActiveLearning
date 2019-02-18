@@ -21,6 +21,11 @@ from torchvision import transforms
 from cca_core import get_cca_similarity
 
 
+
+
+
+
+
 # transform1 = transforms.Compose([
 #         transforms.Resize(224),
 #         transforms.RandomHorizontalFlip(),
@@ -34,9 +39,7 @@ def _plot_helper(arr, xlabel, ylabel):
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.grid()
-
-
-
+    plt.show()
 
 
 
@@ -91,7 +94,24 @@ def correlate_layers(feature_map1, feature_map2):
         Description of returned object.
 
     """
-    print(get_cca_similarity(feature_map1, feature_map2, epsilon=0., threshold=0.98, compute_coefs=True, compute_dirns=False, verbose=True))
+
+    num_imgs, channels, h, w = feature_map1.size()
+    features_i = feature_map1.view(-1, channels).numpy()  #numpy bridge
+
+    num_imgs, channels, h, w = feature_map2.size()
+    features_j = feature_map2.view(-1, channels).numpy()   #numpy bridge
+
+    print(features_i.shape)
+    print(features_j.shape)
+    # print(fourier_ccas(feature_map1, featureB, return_coefs=True, compute_dirns=True,verbose=False))
+
+    result = get_cca_similarity(features_i.T, features_j.T, epsilon=0.,
+                                                         threshold=0.98,
+                                                         compute_coefs=True,
+                                                         compute_dirns=False,
+                                                         verbose=True)
+    print(result.keys())
+    _plot_helper(result["cca_coef1"], "CCA Coef idx", "coef value")
 
 
 
