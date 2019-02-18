@@ -8,7 +8,8 @@ from math import log
 import matplotlib.pyplot as plt
 import numpy as np
 
-BATCH_SIZE = 8
+SAMPLE_SIZE = 8
+BATCH_SIZE = 16
 
 transforms = transforms.Compose([
         transforms.Resize(224),
@@ -24,7 +25,7 @@ class CIFAR10WithID(datasets.CIFAR10):
 
 def uncertain_samples(model):
     dataset = CIFAR10WithID(root=os.path.join(os.getcwd(), "CIFAR10"), train=True, transform=transforms, download=True)
-    loader = torch.utils.data.DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False)
+    loader = torch.utils.data.DataLoader(dataset, batch_size=SAMPLE_SIZE, shuffle=False)
 
     uncertainty_dict = {}
 
@@ -37,7 +38,7 @@ def uncertain_samples(model):
         outputs = model(data)
         pred = softmax(outputs)
         uncertainty_dict = update_uncertainty_dict(uncertainty_dict, index, pred)
-        if idx == 10:
+        if idx == 5:
             break
 
     uncertainty_dict = sorted(uncertainty_dict.items(), key=lambda kv: (kv[1], kv[0]), reverse=True)
@@ -49,7 +50,14 @@ def uncertain_samples(model):
 def update_uncertainty_dict(uncertainty_dict, index, pred):
     uncertainty = entropy(pred)
     for key, value in enumerate(uncertainty):
-        uncertainty_dict[int(index[key:key+1])] = float(value)
+        if uncertainty_dict.__len__() < BATCH_SIZE:
+            uncertainty_dict[int(index[key:key+1])] = float(value)
+        else:
+            minimum_key = min(uncertainty_dict, key=uncertainty_dict.get)
+            minimum_value = uncertainty_dict[minimum_key]
+            if value > minimum_value:
+                del uncertainty_dict[minimum_key]
+                uncertainty_dict[int(index[key:key + 1])] = float(value)
     return uncertainty_dict
 
 
