@@ -31,9 +31,9 @@ def visualize_scatter(data_2d, label_ids, figsize=(10,10)):
         plt.scatter(data_2d[np.where(label_ids == label_id), 0],
                     data_2d[np.where(label_ids == label_id), 1],
                     marker='o',
-                    color=  'b',
-                    linewidth='0.8',
-                    alpha=0.6,
+                    color= plt.cm.Set1(label_id / float(nb_classes)),
+                    linewidth='1',
+                    alpha=0.8,
                     label=id_to_label_dict[label_id])
 
     for label_id in np.unique(label_ids):
@@ -42,8 +42,8 @@ def visualize_scatter(data_2d, label_ids, figsize=(10,10)):
                         data_2d[np.where(label_ids == label_id), 1],
                         marker='o',
                         color= 'red',
-                        linewidth='1.5',
-                        alpha=0.6,
+                        linewidth='5',
+                        alpha=0.8,
                         label=id_to_label_dict[label_id])
 
 
