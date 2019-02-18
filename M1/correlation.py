@@ -4,39 +4,41 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 import os
+from os import path
 import copy
 import torch.optim as lr_scheduler
 from torchvision import models
 import torchvision.transforms as transforms
-import os, sys
+import sys
 from matplotlib import pyplot as plt
 import numpy as np
 import pickle
 import pandas
 import gzip
-import cca_core
 from PIL import Image
 from torch.autograd import Variable
 from torchvision import transforms
-from cca_core import get_cca_similarity
+from CCA.cca_core import get_cca_similarity
 from pprint import pprint as pp
 
 
+sys.path.append(path.dirname(path.abspath(__file__)))
+print(sys.path)
 
-# transform1 = transforms.Compose([
-#         transforms.Resize(224),
-#         transforms.RandomHorizontalFlip(),
-#         transforms.ToTensor(),
-#         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-#     ])
-#
+def _plot_helper(arr, xlabel, ylabel, title, output_file):
+    x_range = np.arange(len(arr)); pp(x_range)
+    baseline_correlation = np.mean(arr)
 
-def _plot_helper(arr, xlabel, ylabel):
-    plt.plot(arr, lw=2.0)
+    plt.ylim([0, 1.2])
+    plt.plot(np.arange(len(arr)), arr)
+    plt.hlines(baseline_correlation, xmin = 0, xmax=len(arr))
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
+    plt.title(title)
+    plt.text(0, baseline_correlation + 0.01, str(baseline_correlation))
     plt.grid()
-    plt.show()
+    print(arr[-1])
+    plt.savefig(output_file)
 
 
 
@@ -75,7 +77,7 @@ def get_feature_map(model, layer, image):
 
     return result[0]
 
-def correlate_layers(feature_map1, feature_map2):
+def correlate_layers(feature_map1, feature_map2, title, output_file):
     """Short summary.
 
     Parameters
@@ -100,35 +102,37 @@ def correlate_layers(feature_map1, feature_map2):
 
     print(features_i.shape)
     print(features_j.shape)
-    # print(fourier_ccas(feature_map1, featureB, return_coefs=True, compute_dirns=True,verbose=False))
 
     result = get_cca_similarity(features_i.T, features_j.T, epsilon=1e-10,
                                                          compute_coefs=True,
                                                          compute_dirns=False,
                                                          verbose=True)
-    print(result.keys())
-    _plot_helper(result["cca_coef1"], "CCA Coef idx", "coef value")
+    _plot_helper(result["cca_coef1"], "CCA Coef idx", "coef value",title,  output_file)
     pp(result["cca_coef1"])
 
 
-# python3 correlation.py >> log.txt
 
 
 
 if __name__ == '__main__':
-    img_path ='Data/dog.jpg'
-    img = Image.open(img_path)
+    img_i_path ='Data/dog.jpg'
+    img_j_path ='Data/dog.jpg'
+
+    img_i = Image.open(img_i_path)
+    img_j = Image.open(img_j_path)
+
     totensor = transforms.ToTensor()
-    scaler = transforms.Resize((224, 224))
-    transformed_img = Variable(totensor(scaler(img)))
+    scaler   = transforms.Resize((224, 224))
+    transformed_img_i = Variable(totensor(scaler(img_i)))
+    transformed_img_j = Variable(totensor(scaler(img_j)))
     net = models.alexnet(pretrained=True)
     net.eval()
     # size = compute_out_size(transformed_img.size(), net)
     layer1 = net._modules.get('features')[0]
     # print(_get_feature_map_size(net, layer1, transformed_img.unsqueeze(0)))
     # print(get_feature_map(net, layer1, transformed_img.unsqueeze(0)))
-    featureA = get_feature_map(net, layer1, transformed_img.unsqueeze(0))
-    featureB = get_feature_map(net, layer1, transformed_img.unsqueeze(0))
+    featureA = get_feature_map(net, layer1, transformed_img_i.unsqueeze(0))
+    featureB = get_feature_map(net, layer1, transformed_img_j.unsqueeze(0))
     print("what")
     print(featureA.shape)
-    correlate_layers(featureA, featureB)
+    correlate_layers(featureA, featureB, title = 'dogVSdog', output_file='Plots/dogVSdog.jpg')
