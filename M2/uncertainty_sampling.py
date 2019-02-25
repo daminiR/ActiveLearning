@@ -8,16 +8,6 @@ from math import log
 import matplotlib.pyplot as plt
 import numpy as np
 
-# Parameters
-SAMPLE_SIZE = 8
-BATCH_SIZE = 16
-
-transforms = transforms.Compose([
-        transforms.Resize(224),
-        transforms.ToTensor(),
-    ])
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class CIFAR10WithID(datasets.CIFAR10):
     def __getitem__(self, index):
@@ -44,72 +34,71 @@ class CustomDataset(datasets.ImageFolder):
         return self.length
 
 
-def uncertain_samples(model):
-    dataset = CIFAR10WithID(root=os.path.join(os.getcwd(), "CIFAR10"), train=True, transform=transforms, download=True)
-    loader = torch.utils.data.DataLoader(dataset, batch_size=SAMPLE_SIZE, shuffle=False)
+class UncertaintySampler:
 
-    uncertainty_dict = {}
+    def __init__(self, threshold=0.5, sample_size=8, verbose=True, iteration=1):
+        self.threshold = threshold
+        self.sample_size = sample_size
+        self.verbose = verbose
+        self.iteration = iteration
 
-    for idx, value in enumerate(loader):
-        (data, label), index = value
+    def calculate_uncertainty(self, model, dataset):
+        loader = torch.utils.data.DataLoader(dataset, batch_size=self.sample_size, shuffle=False)
+        uncertainty_dict = {}
         model.eval()
-        data = data.to(device)
-        softmax = nn.Softmax(dim=1)
 
-        outputs = model(data)
-        pred = softmax(outputs)
-        uncertainty_dict = update_uncertainty_dict(uncertainty_dict, index, pred)
-        if idx == 1:
-            break
+        for idx, value in enumerate(loader):
+            (data, label), index = value
+            data = data.to(device)
+            softmax = nn.Softmax(dim=1)
+            outputs = model(data)
+            pred = softmax(outputs)
+            uncertainty_dict = self._update_uncertainty_dict(uncertainty_dict, index, pred)
+            if idx == self.iteration:
+                break
 
-    uncertainty_dict = sorted(uncertainty_dict.items(), key=lambda kv: (kv[1], kv[0]), reverse=True)
-    print(uncertainty_dict)
-    visualize_image(dataset[next(iter(uncertainty_dict))[0]][0][0], 'Most Uncertain Image, Entropy = %f' % next(iter(uncertainty_dict))[1])
-    selected_dataset = extract_data(dataset, uncertainty_dict)
-    return uncertainty_dict, selected_dataset
+        uncertainty_list = sorted(uncertainty_dict.items(), key=lambda kv: (kv[1], kv[0]), reverse=True)
+        if self.verbose:
+            print(uncertainty_list)
+            self._visualize_image(dataset[next(iter(uncertainty_list))[0]][0][0],
+                                  'Most Uncertain Image, Entropy = %.3f' % next(iter(uncertainty_list))[1])
+        return uncertainty_list
 
-def extract_data(dataset, uncertainty_list):
-    data = []
-    label = []
-    for key, value in enumerate(uncertainty_list):
-        data.append(dataset[key][0][0])
-        label.append(dataset[key][0][1])
-    selected_data = CustomDataset(data, label, uncertainty_list, transforms=False)
-    return selected_data
-
-
-
-def update_uncertainty_dict(uncertainty_dict, index, pred):
-    uncertainty = entropy(pred)
-    for key, value in enumerate(uncertainty):
-        if uncertainty_dict.__len__() < BATCH_SIZE:
-            uncertainty_dict[int(index[key:key+1])] = float(value)
-        else:
-            minimum_key = min(uncertainty_dict, key=uncertainty_dict.get)
-            minimum_value = uncertainty_dict[minimum_key]
-            if value > minimum_value:
-                del uncertainty_dict[minimum_key]
+    def _update_uncertainty_dict(self, uncertainty_dict, index, prediction):
+        uncertainty = self._entropy(prediction)
+        for key, value in enumerate(uncertainty):
+            if value > self.threshold:
                 uncertainty_dict[int(index[key:key + 1])] = float(value)
-    return uncertainty_dict
+        return uncertainty_dict
 
+    @staticmethod
+    def _visualize_image(image, title):
+        image = np.swapaxes(image, 0, 2)
+        image = np.swapaxes(image, 0, 1)
+        plt.imshow(image)
+        plt.title(title)
+        plt.show()
 
-def visualize_image(image, title):
-    image = np.swapaxes(image, 0, 2)
-    plt.imshow(image)
-    plt.title(title)
-    plt.show()
-
-
-def entropy(prediction):
-    return torch.div(torch.sum(-prediction * torch.log2(prediction), dim=1), log(10, 2))
+    @staticmethod
+    def _entropy(prediction):
+        return torch.div(torch.sum(-prediction * torch.log2(prediction), dim=1), log(10, 2))
 
 
 if __name__ == '__main__':
+    SAMPLE_SIZE = 8
+    NUM_CLASSES = 10
+
+    transforms = transforms.Compose([
+        transforms.Resize(224),
+        transforms.ToTensor(),
+    ])
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    dataset = CIFAR10WithID(root=os.path.join(os.getcwd(), "CIFAR10"), train=True, transform=transforms, download=True)
     net = models.resnet18(pretrained=True)
     num_ftrs = net.fc.in_features
-    net.fc = nn.Linear(num_ftrs, 10)#todo: make dataset and consider class size right now it doesnt matter
-    uncertainty_list, selected_dataset = uncertain_samples(net.to(device))
+    net.fc = nn.Linear(num_ftrs, NUM_CLASSES)
 
-    for key, value in enumerate(selected_dataset):
-        print(value)
+    M2 = UncertaintySampler(iteration=10)
+    uncertainty = M2.calculate_uncertainty(net.to(device), dataset)
 
