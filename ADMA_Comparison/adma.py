@@ -148,9 +148,9 @@ def train_model(model, criterion, optimizer, scheduler,distList, num_epochs=25):
 
             running_loss = 0.0
             running_corrects = 0
-            trainIterations = 0
-            lambdac= 0.8
-            storeImages = []
+            trainIterations = 0 #variable to count the number of batches that are finished with training 
+            lambdac= 0.8 #chose a random lambda value for the criterion score
+            storeImages = [] #This stores all the images and its labels in the training data set
 
             #repeat until certain training loss or accuracy is reached? 
 
@@ -158,30 +158,28 @@ def train_model(model, criterion, optimizer, scheduler,distList, num_epochs=25):
             if phase == train :
                 for inputs,labels in dataloaders['train']:
                     for ind in range(batch_size):
-                        storeImages.append(inputs[ind],labels[ind])
+                        storeImages.append(inputs[ind],labels[ind]) #storing all the images (individually) and labels in the training dataset.
 
                 #train until accuracy of training is <= 0.7
                 running_acc = 0.0 
-                while(running_acc <= 0.7):
+                while(running_acc <= 0.7): #(Repeat Until loop in the adma paper) 
                     #calculate critertion score after every you train with a batch:
 
-                    criterionScores = []
+                    criterionScores = [] #stores criterion score and the index of the image in the training data. Since epoch shuffle is false in the dataloader the distinctiveness will be indexed corrrect and of the correct image. 
 
-
-                    for imageNo in range(len(storeImages)):
-                        distinctiveness = distList[imageNo]
-                        imagecriterionScore = (1 - lambdac*trainIterations*distinctiveness,imageNo)
-                        criterionScores.append(imagecriterionScore)
-                        imageNo = imageNo + 1
+                    for imageNo in range(len(storeImages)): 
+                        distinctiveness = distList[imageNo] #Getting the distictiveness using the index of the image in the training set. 
+                        imagecriterionScore = (1 - lambdac*trainIterations*distinctiveness,imageNo) #using only distictiveness cause we haven't done the uncertainty bit yet. 
+                        criterionScores.append(imagecriterionScore) 
                         
                     #sort criterionScore list by first val
-                    criterionScores.sort(key = sortFunction)
+                    criterionScores.sort(key = sortFunction) #Sorting the criterion scores according to the criterion Score (not imageNo)
 
                     #choose the last batch_size in the training set 
                     activeLearningInputs = []
                     activeLearningLabels = []
                     for ind in range(batch_size):
-                        _, alImageNo = criterionScores.pop()
+                        _, alImageNo = criterionScores.pop() #getting the last batch_size elements in the criterionScores list. We care only about the image index (imageNo) now to retrieve it from storeImages 
                         alInput,alLabel = storeImages.pop(alImageNo)
                         activeLearningInputs.append(alInput)
                         activeLearningLabels.append(alLabel)
@@ -403,7 +401,7 @@ while (1):
         for ind in range(batch_size):
             tau, _ = stats.kendalltau(patterns_instances_ab[ind], approx_patterns_instances_ab[ind])
             distinctiveness = (1 - tau) / 2
-            distList[imageNo] = distinctiveness
+            distList[imageNo] = distinctiveness #saving distinctiveness to a list indexing it according to the order of images in the training data folder. 
             imageNo = imageNo + 1
             print(distinctiveness)
 

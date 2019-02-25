@@ -94,7 +94,6 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
 
     best_model_wts = copy.deepcopy(model.state_dict())
     best_acc = 0.0
-    #accuracyClass = [0] * len(class_names)
     for epoch in range(num_epochs):
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
         print('-' * 10)
@@ -109,8 +108,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
 
             running_loss = 0.0
             running_corrects = 0
-            #running_correctClass = [0]*len(class_names)
-            #class_total = [0]*len(class_names)
+            
             test_acc_cont  = []
             batch_cont = []
             batchNo = 0
@@ -118,12 +116,6 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
             for inputs, labels in dataloaders[phase]:
                 inputs = inputs.to(device)
                 labels = labels.to(device)
-
-                #for ind in range(inputs.size()[0]):
-                    #print(ind)
-                    #print(inputs[ind])
-                    #print('label')
-                    #print(labels[ind])
 
                 # zero the parameter gradients
                 optimizer.zero_grad()
@@ -134,25 +126,11 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                     outputs = model(inputs)
                     _, preds = torch.max(outputs, 1)
                     loss = criterion(outputs, labels)
-                    
-                    #print(inputs)
-                    #print (outputs.data)
-                    #print(preds.data)
-                    #print (labels.data)
 
                     # backward + optimize only if in training phase
                     if phase == 'train':
                         loss.backward()
                         optimizer.step()
-
-                # statistics
-
-                # for i in range(len(class_names)):
-                #     for j in range(len(preds)):
-                #         if(preds[j] == labels.data[j]):
-                #             running_correctClass[labels.data[j]] +=1
-
-                #         class_total[labels.data[j]]+=1
 
 
                 running_loss += loss.item() * inputs.size(0)
@@ -162,15 +140,16 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
 
                 if epoch < num_epochs - 3 and phase == 'train':
 
-                    test_acc = test_model(model)
+                    test_acc = test_model(model) #calling test_model function every time a batch in training data set is used for training. 
                     test_acc_cont.append(test_acc)
                     batchNo = batchNo + 1
-                    batch_cont.append(batchNo)
+                    batch_cont.append(batchNo) #current batch number 
 
                     print(test_acc)
 
+                    #plotting the test accuracy for a batch no for the epochs we want. 
 
-            if epoch < num_epochs - 3 and phase == 'train':
+            if epoch < num_epochs - 3 and phase == 'train': 
                 #plot x and y 
                 print('len')
                 print(len(batch_cont))
@@ -229,7 +208,7 @@ def test_model(model):
     test_acc = 0.0
     total_test = 0
 
-    for i, (inputs, labels) in enumerate(test_dataloader['test']):
+    for i, (inputs, labels) in enumerate(test_dataloader['test']): #going through all the data in the test data folder and calculating the accuracy for the current model wieghts. 
 
         inputs = inputs.to(device)
         labels = labels.to(device)
@@ -239,9 +218,9 @@ def test_model(model):
         outputs = model(inputs)
         _, prediction = torch.max(outputs.data, 1)
         
-        test_acc += torch.sum(prediction == labels.data)
+        test_acc += torch.sum(prediction == labels.data) #prediction == labels.data gives a tensor of batch_size with 0's and 1's, 1 for when condn is true and then when you do torch.sum you get the total correct values. 
        # print(test_acc)
-        total_test = total_test+1*inputs.size()[0]
+        total_test = total_test+1*inputs.size()[0] #calculating the total number of images in test data set == len(test_set)
         #print(total_test)
 
     # Compute the average acc and loss over all 10000 test images
