@@ -14,24 +14,43 @@ class CIFAR10WithID(datasets.CIFAR10):
         return super(CIFAR10WithID, self).__getitem__(index), index
 
 
-class CustomDataset(datasets.ImageFolder):
-    def __init__(self, data, label, uncertainty_list, transforms=None):
-        self.image_data = data
-        self.id = [data[0] for data in uncertainty_list]
-        self.entropy = [data[1] for data in uncertainty_list]
-        self.label = label
-        self.length = len(uncertainty_list)
+class UnlabelledDataset(torch.utils.data.Dataset):
+    def __init__(self, dataset_name, transforms=None):
+        available_datasets = ['MNIST', 'FashionMNIST', 'CIFAR10', 'CIFAR100']
+        self.unlabelled_index = []
         self.transforms = transforms
+        if dataset_name in available_datasets:
+            if dataset_name == 'MNIST':
+                self.dataset_train = datasets.MNIST(root=os.path.join(os.getcwd(), dataset_name), train=True, download=True)
+                self.dataset_test = datasets.MNIST(root=os.path.join(os.getcwd(), dataset_name), train=False, download=True)
+            if dataset_name == 'FashionMNIST':
+                self.dataset_train = datasets.FashionMNIST(root=os.path.join(os.getcwd(), dataset_name), train=True, download=True)
+                self.dataset_test = datasets.FashionMNIST(root=os.path.join(os.getcwd(), dataset_name), train=False, download=True)
+            if dataset_name == 'CIFAR10':
+                self.dataset_train = datasets.CIFAR10(root=os.path.join(os.getcwd(), dataset_name), train=True, download=True)
+                self.dataset_test = datasets.CIFAR10(root=os.path.join(os.getcwd(), dataset_name), train=False, download=True)
+            if dataset_name == 'CIFAR100':
+                self.dataset_train = datasets.CIFAR100(root=os.path.join(os.getcwd(), dataset_name), train=True, download=True)
+                self.dataset_test = datasets.CIFAR100(root=os.path.join(os.getcwd(), dataset_name), train=False, download=True)
+        else:
+            path = os.path.join(os.getcwd(), dataset_name)
+            self.dataset_train = datasets.ImageFolder(root=os.path.join(path, 'train'))
+            self.dataset_test = datasets.ImageFolder(root=os.path.join(path, 'test'))
 
     def __getitem__(self, index):
-        data = self.image_data[index]
-        label = self.label[index]
-        # if self.transforms is not None:
-        #     data = self.transforms(data)
-        return data, label, self.id[index], self.entropy[index]
+        data, label = self.dataset_train[index]
+        if self.transforms:
+            data = self.transforms(data)
+        return data, label, index
+
+    def _x_iter__(self):
+        return (self.indices[i] for i in self.unlabelled_inde)
 
     def __len__(self):
-        return self.length
+        return len(self.dataset_train)
+
+    def mark(self, index):
+        self.unlabelled_index.append(index)
 
 
 class UncertaintySampler:
@@ -41,6 +60,7 @@ class UncertaintySampler:
         self.sample_size = sample_size
         self.verbose = verbose
         self.iteration = iteration
+    #     TODO: How to set max iterations
 
     def calculate_uncertainty(self, model, dataset):
         loader = torch.utils.data.DataLoader(dataset, batch_size=self.sample_size, shuffle=False)
@@ -48,7 +68,8 @@ class UncertaintySampler:
         model.eval()
 
         for idx, value in enumerate(loader):
-            (data, label), index = value
+            data, label, index = value
+            print(data.shape)
             data = data.to(device)
             softmax = nn.Softmax(dim=1)
             outputs = model(data)
@@ -73,6 +94,8 @@ class UncertaintySampler:
 
     @staticmethod
     def _visualize_image(image, title):
+        image = image.numpy()
+        print(image.shape)
         image = np.swapaxes(image, 0, 2)
         image = np.swapaxes(image, 0, 1)
         plt.imshow(image)
@@ -94,11 +117,11 @@ if __name__ == '__main__':
     ])
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    dataset = CIFAR10WithID(root=os.path.join(os.getcwd(), "CIFAR10"), train=True, transform=transforms, download=True)
+    dataset = UnlabelledDataset('CIFAR10', transforms=transforms)
     net = models.resnet18(pretrained=True)
     num_ftrs = net.fc.in_features
     net.fc = nn.Linear(num_ftrs, NUM_CLASSES)
 
-    M2 = UncertaintySampler(iteration=10)
+    M2 = UncertaintySampler(iteration=1)
     uncertainty = M2.calculate_uncertainty(net.to(device), dataset)
 
