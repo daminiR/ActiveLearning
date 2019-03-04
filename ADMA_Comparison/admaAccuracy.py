@@ -136,7 +136,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 running_loss += loss.item() * inputs.size(0)
                 running_corrects += torch.sum(preds == labels.data)
 
-                #calculate test accuracy after calculating of each batch. 
+                #calculate test accuracy after calculating of each batch. (MY CODE IS FROM LINE 139 to 161)
 
                 if epoch < num_epochs - 3 and phase == 'train':
 
