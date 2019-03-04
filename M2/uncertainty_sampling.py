@@ -44,7 +44,6 @@ class UnlabelledDataset(torch.utils.data.Dataset):
                 self.dataset_test = datasets.CIFAR100(root=os.path.join(os.getcwd(), dataset_name),
                                                       train=False, download=True)
         else:
-            path = os.path.join(os.getcwd(), dataset_name)
             self.dataset_train = datasets.ImageFolder(root=os.path.join(path, 'train'))
             self.dataset_test = datasets.ImageFolder(root=os.path.join(path, 'test'))
         self.labelled_index = np.ones(len(self.dataset_train))
