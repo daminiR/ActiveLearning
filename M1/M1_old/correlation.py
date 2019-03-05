@@ -1,24 +1,14 @@
 #!/usr/bin/env python3
 import torch
-import numpy as np
-import matplotlib.pyplot as plt
-import time
-import os
 from os import path
-import copy
-import torch.optim as lr_scheduler
 from torchvision import models
-import torchvision.transforms as transforms
 import sys
 from matplotlib import pyplot as plt
 import numpy as np
-import pickle
-import pandas
-import gzip
 from PIL import Image
 from torch.autograd import Variable
 from torchvision import transforms
-from CCA.cca_core import get_cca_similarity
+from M1_old.CCA import get_cca_similarity
 from pprint import pprint as pp
 
 
@@ -70,14 +60,15 @@ def get_feature_map(model, layer, image):
         feature_map.copy_(output.data)
         result[0] = feature_map
 
-    hook = layer.register_forward_hook(forward_hook)
+    for layer in models._module.get('features'):
+        hook = layer.register_forward_hook(forward_hook)
 
-    model(image)
-    hook.remove()
+        model(image)
+        hook.remove()
 
     return result[0]
 
-def correlate_layers(feature_map1, feature_map2, title, output_file):
+def correlate_layers(feature_map1, featur_me_map2, title, output_file):
     """Short summary.
 
     Parameters
@@ -109,8 +100,6 @@ def correlate_layers(feature_map1, feature_map2, title, output_file):
                                                          verbose=True)
     _plot_helper(result["cca_coef1"], "CCA Coef idx", "coef value",title,  output_file)
     pp(result["cca_coef1"])
-
-
 
 
 
