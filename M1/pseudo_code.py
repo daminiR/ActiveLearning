@@ -10,6 +10,7 @@ from torch.optim import lr_scheduler
 import torch.optim as optim
 import copy
 import torchvision
+from M2 import UnlabelledDataset
 normalize = transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
 dataloader = torch.utils.data.DataLoader(
             datasets.CIFAR100('../CIFAR100_data', train=True, download=True,
@@ -33,8 +34,9 @@ def one_v_all_sigmoid_loss(predicts, targets):#target is (batch x num)_classes d
     """
 
     y = torch.zeros(predicts.shape[0], predicts.shape[1])
+    #one hot encoding
     y[range(targets.shape[0]), targets] = 1
-    objective_loss_function = nn.BCEWithLogitsLoss( reduction='sum')
+    objective_loss_function = nn.BCEWithLogitsLoss(reduction='sum')
     return objective_loss_function(predicts, y)
 
 
@@ -69,6 +71,8 @@ def accept_target_data_m1(net, loader):
     class_dominant = 0
     max_epochs = 10
     set_of_accepted = list()
+    loader = torch.utils.data.DataLoader(dataset, batch_size=self.sample_size,
+                                         sampler=SequentialSubsetSampler(np.where(dataset.labelled_index)[0]))
     with torch.no_grad():#save memeory
         while accuracy < 0.7 or epoch < max_epochs:
             for idx, (inputs, labels) in enumerate(loader):
@@ -137,9 +141,10 @@ if __name__ == "__main__":
     # optimizer = optim.SGD(net.parameters(), lr=0.1, momentum=0.9)
     # exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
     # train_model(net, optimizer, exp_lr_scheduler, 2)
-
+    UnlabelledDataset
     input = torch.rand((2, 2))
     labels = torch.randint(2, size=(2,))
     print(input)
     print(labels)
     print(one_v_all_sigmoid_loss(input, labels))
+
