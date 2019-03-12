@@ -38,10 +38,11 @@ def one_v_all_sigmoid_loss(predicts, targets):#target is (batch x num)_classes d
     y = torch.zeros(predicts.shape[0], predicts.shape[1])
     #one hot encoding
     y[range(targets.shape[0]), targets] = 1
+    print(y)
     # objective_loss_function = nn.CrossEntropyLoss()
     # loss = criterion(outputs, labels)
-    objective_loss_function = nn.BCEWithLogitsLoss(reduction='sum')
-    return objective_loss_function(predicts, y.to(device))
+    # objective_loss_function = nn.BCEWithLogitsLoss(reduction='sum')
+    # return objective_loss_function(predicts, y.to(device))
 
 
 def train_model(model,laoder,  optimizer, scheduler, num_epochs=25):
@@ -106,9 +107,14 @@ if __name__ == "__main__":
         transforms.ToTensor(),
         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.247, 0.243, 0.261))
     ])
-    net.classifier[-1] = nn.Linear(in_features=4096, out_features=100)  # todo: still need to train and fine-tune model
+    net.classifier[-1] = nn.Linear(in_features=4096, out_features=10)  # todo: still need to train and fine-tune model
     net = net.to(device)
     trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
                                             download=True, transform=transforms)
-    loader = torch.utils.data.DataLoader(trainset, batch_size=16, shuffle=True, num_workers=4)
+    loader = torch.utils.data.DataLoader(trainset, batch_size=10, shuffle=True, num_workers=4)
+
+    # input, labels = next(iter(loader))
+    # outputs = net(input)
+    # print(labels)
+    # one_v_all_sigmoid_loss(outputs, labels)
     train_model(net, loader, optimizer, exp_lr_scheduler, 2)
