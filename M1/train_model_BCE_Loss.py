@@ -12,7 +12,7 @@ import copy
 import torchvision
 import numpy as np
 
-from M2.uncertainty_sampling import UnlabelledDataset, SequentialSubsetSampler
+#from M2.uncertainty_sampling import UnlabelledDataset, SequentialSubsetSampler
 normalize = transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
 dataloader = torch.utils.data.DataLoader(
             datasets.CIFAR100('../CIFAR100_data', train=True, download=True,
@@ -40,7 +40,7 @@ def one_v_all_sigmoid_loss(predicts, targets):#target is (batch x num)_classes d
     y[range(targets.shape[0]), targets] = 1
     # objective_loss_function = nn.CrossEntropyLoss()
     # loss = criterion(outputs, labels)
-    objective_loss_function = nn.BCEWithLogitsLoss()
+    objective_loss_function = nn.BCEWithLogitsLoss(reduction='sum')
     return objective_loss_function(predicts, y.to(device))
 
 
@@ -67,6 +67,7 @@ def train_model(model,laoder,  optimizer, scheduler, num_epochs=25):
             optimizer.zero_grad()
             with torch.set_grad_enabled(True):
                 outputs = model(inputs)
+                print(outputs);
                 _, preds = torch.max(outputs, 1)
                 loss = one_v_all_sigmoid_loss(outputs, labels)
                 # criterion = nn.CrossEntropyLoss()
@@ -97,7 +98,7 @@ if __name__ == "__main__":
     #     nn.ReLU()
     # )
 
-    optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.9)
+    optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 
     transforms = transforms.Compose([
