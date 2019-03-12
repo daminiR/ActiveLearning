@@ -106,14 +106,9 @@ if __name__ == "__main__":
         transforms.ToTensor(),
         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.247, 0.243, 0.261))
     ])
-    net.classifier[-1] = nn.Linear(in_features=4096, out_features=10)  # todo: still need to train and fine-tune model
+    net.classifier[-1] = nn.Linear(in_features=4096, out_features=100)  # todo: still need to train and fine-tune model
     net = net.to(device)
     trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
                                             download=True, transform=transforms)
     loader = torch.utils.data.DataLoader(trainset, batch_size=16, shuffle=True, num_workers=4)
     train_model(net, loader, optimizer, exp_lr_scheduler, 2)
-
-
-
-
-
