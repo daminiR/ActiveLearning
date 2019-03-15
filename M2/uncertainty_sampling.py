@@ -44,6 +44,7 @@ class UnlabelledDataset(torch.utils.data.Dataset):
                 self.dataset_test = datasets.CIFAR100(root=os.path.join(os.getcwd(), dataset_name),
                                                       train=False, download=True)
         else:
+            path = os.path.join(os.getcwd(), dataset_name)
             self.dataset_train = datasets.ImageFolder(root=os.path.join(path, 'train'))
             self.dataset_test = datasets.ImageFolder(root=os.path.join(path, 'test'))
         self.labelled_index = np.ones(len(self.dataset_train))
@@ -118,7 +119,7 @@ class UncertaintySampler:
     Return:
         1. List of tuples in the format [(index, entropy), (index, entropy),..]
     """
-    def calculate_uncertainty(self, model, dataset):
+    def calculate_uncertainty(self, model, dataset, device='cpu'):
         loader = torch.utils.data.DataLoader(dataset, batch_size=self.sample_size,
                                              sampler=SequentialSubsetSampler(np.where(dataset.labelled_index)[0]))
         uncertainty_dict = {}
@@ -134,7 +135,7 @@ class UncertaintySampler:
             if idx+1 == self.iteration:
                 break
 
-        uncertainty_list = sorted(uncertainty_dict.items(), key=lambda kv: (kv[1], kv[0]), reverse=True)
+        uncertainty_list = sorted(uncertainty_dict.items(), key=lambda kv: (kv[1][0], kv[0]), reverse=True)
         if self.verbose:
             print(uncertainty_list)
             self._visualize_image(dataset[next(iter(uncertainty_list))[0]][0],
@@ -145,7 +146,7 @@ class UncertaintySampler:
         uncertainty = self._entropy(prediction)
         for key, value in enumerate(uncertainty):
             if value > self.threshold:
-                uncertainty_dict[int(index[key:key + 1])] = float(value)
+                uncertainty_dict[int(index[key:key + 1])] = (float(value), prediction[key])
         return uncertainty_dict
 
     @staticmethod

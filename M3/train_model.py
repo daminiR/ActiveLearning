@@ -34,9 +34,12 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
             running_corrects = 0
 
             uncertainty = M2.calculate_uncertainty(model, dataset, device)
-            uncertainty = uncertainty[0:(batch_size-1)]
+            uncertainty = uncertainty[0:batch_size]
             uncertainty = zip(*uncertainty)
-            index, _ = uncertainty
+            index, val = uncertainty
+            _, pred = zip(*val)
+
+            # TODO: call reduce_redundancy and pass index? and pred
 
             inputs_labelled = []
             labels_labelled = []
@@ -158,6 +161,8 @@ optimizer = optim.SGD(vgg16.parameters(), lr=0.001, momentum=0.9)
 
 # decay LR by a factor of 0.1 every 7 epochs
 exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
+
+# TODO: change the size for last layer of the model
 
 vgg16 = train_model(vgg16, criterion, optimizer, exp_lr_scheduler, num_epochs=25)
 
