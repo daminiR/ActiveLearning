@@ -22,9 +22,10 @@ def _KL(p, q):
 
     """
     #convert to array
-    p = np.asarray(p, dtype=np.float)
-    q = np.asarray(q, dtype=np.float)
+    #p = p.detach().numpy()
+    #q = q.detach().numpy()
 
+    #return torch.sum(torch.where(p != 0, p * torch.log(p / q), torch.zeros(1)))
     return np.sum(np.where(p != 0, p * np.log(p / q), 0))
 
 
@@ -44,10 +45,11 @@ def calculate_KL_batch(batch):
         (n x 1) tensor of KL scores for each image within the batch
 
     """
-    KL_scores = [0] * batch.size()[0]
-    for i in range(batch.size()[0]):
+    print(len(batch))
+    KL_scores = [0] * len(batch)
+    for i in range(len(batch)):
         running_sum = 0
-        for j in range(batch.size()[0]):
+        for j in range(len(batch)):
             running_sum += _KL(batch[i], batch[j])
         KL_scores[i] = running_sum
 

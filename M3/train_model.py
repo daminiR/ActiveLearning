@@ -7,7 +7,8 @@ import time
 import os
 import copy
 from scipy import stats
-from uncertainty_sampling import * 
+from uncertainty_sampling import *
+from klDivergence import *
 
 start_time = time.time()
 
@@ -34,12 +35,14 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
             running_corrects = 0
 
             uncertainty = M2.calculate_uncertainty(model, dataset, device)
-            uncertainty = uncertainty[0:batch_size]
+            uncertainty = uncertainty[0:(2 * batch_size)]
             uncertainty = zip(*uncertainty)
             index, val = uncertainty
             _, pred = zip(*val)
 
-            # TODO: call reduce_redundancy and pass index? and pred
+            divergence = calculate_KL_batch(pred)
+            divergence_list = sorted(zip(index, divergence), key=lambda k: k[1], reverse=True)[0:batch_size]
+            index, _ = zip(*divergence_list)
 
             inputs_labelled = []
             labels_labelled = []
