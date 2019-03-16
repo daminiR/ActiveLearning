@@ -85,8 +85,9 @@ def train_model(model,laoder,  optimizer, scheduler, num_epochs=25):
                 print("itertation {}".format(i))
 #
         print(running_corrects)
-        epoch_loss = running_loss / len(dataloader.dataset)
-        epoch_acc = running_corrects / len(dataloader.dataset)
+        epoch_loss = int(running_loss) / len(dataloader.dataset)
+        epoch_acc = int(running_corrects) / len(dataloader.dataset)
+
         if epoch == 10 :
             torch.save(model.state_dict(), "M1_10")
         print('loss: {:.4f} acc: {:.4f}'.format(epoch_loss, epoch_acc))
