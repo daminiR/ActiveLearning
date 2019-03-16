@@ -22,10 +22,9 @@ def _KL(p, q):
 
     """
     #convert to array
-    #p = p.detach().numpy()
-    #q = q.detach().numpy()
+    p = p.detach().cpu().numpy()
+    q = q.detach().cpu().numpy()
 
-    #return torch.sum(torch.where(p != 0, p * torch.log(p / q), torch.zeros(1)))
     return np.sum(np.where(p != 0, p * np.log(p / q), 0))
 
 

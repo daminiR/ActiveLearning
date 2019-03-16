@@ -155,6 +155,9 @@ num_class = len(list(class_names))
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 vgg16 = models.vgg16(pretrained=True)
+
+num_ftrs = vgg16.classifier[-1].in_features
+vgg16.classifier[-1] = nn.Linear(num_ftrs, num_class)
 vgg16 = vgg16.to(device)
 
 criterion = nn.CrossEntropyLoss()
@@ -164,8 +167,6 @@ optimizer = optim.SGD(vgg16.parameters(), lr=0.001, momentum=0.9)
 
 # decay LR by a factor of 0.1 every 7 epochs
 exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
-
-# TODO: change the size for last layer of the model
 
 vgg16 = train_model(vgg16, criterion, optimizer, exp_lr_scheduler, num_epochs=25)
 
