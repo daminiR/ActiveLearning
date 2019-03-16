@@ -84,8 +84,8 @@ def train_model(model,laoder,  optimizer, scheduler, num_epochs=25):
                 running_corrects += torch.sum(preds == labels.data)
                 print("itertation {}".format(i))
 #
-        epoch_loss = running_loss / len(dataloader)
-        epoch_acc = running_corrects / len(dataloader)
+        epoch_loss = running_loss / len(dataloader.dataset)
+        epoch_acc = running_corrects / len(dataloader.dataset)
         if epoch == 10 :
             torch.save(model.state_dict(), "M1_10")
         print('loss: {:.4f} acc: {:.4f}'.format(epoch_loss, epoch_acc))
@@ -121,5 +121,4 @@ if __name__ == "__main__":
                                             download=True, transform=transforms)
 
     loader = torch.utils.data.DataLoader(trainset, batch_size=10, shuffle=True, num_workers=4)
-    print(len(loader))
     train_model(net, loader, optimizer, exp_lr_scheduler, 25)
