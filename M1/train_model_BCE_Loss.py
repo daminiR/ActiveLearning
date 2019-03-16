@@ -68,7 +68,7 @@ def train_model(model,laoder,  optimizer, scheduler, num_epochs=25):
                 try:
                     assert (not torch.isnan(outputs).any())
                 except Exception as e:
-                    print("At batch num: {}".format(i))
+                    print("At itertation num: {}".format(i))
                     print(outputs)
                     raise e
                 _, preds = torch.max(outputs, 1)
@@ -83,7 +83,7 @@ def train_model(model,laoder,  optimizer, scheduler, num_epochs=25):
                 # statistics
                 running_loss += loss.item() * inputs.size(0)
                 running_corrects += torch.sum(preds == labels.data)
-                print("Batch {}".format(i))
+                print("itertation {}".format(i))
 #
         epoch_loss = running_loss / len(dataloader)
         epoch_acc = running_corrects / len(dataloader)
@@ -118,5 +118,5 @@ if __name__ == "__main__":
     net = net.to(device)
     trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
                                             download=True, transform=transforms)
-    loader = torch.utils.data.DataLoader(trainset, batch_size=5, shuffle=True, num_workers=4)
+    loader = torch.utils.data.DataLoader(trainset, batch_size=10, shuffle=True, num_workers=4)
     train_model(net, loader, optimizer, exp_lr_scheduler, 2)
