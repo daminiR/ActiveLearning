@@ -32,7 +32,6 @@ def one_v_all_sigmoid_loss(predicts, targets):#target is (batch x num)_classes d
     -------
 
     """
-
     y = torch.zeros(predicts.shape[0], predicts.shape[1])
     #one hot encoding
     y[range(targets.shape[0]), targets] = 1
@@ -72,9 +71,7 @@ def train_model(model,laoder,  optimizer, scheduler, num_epochs=25):
                     print(outputs)
                     raise e
                 _, preds = torch.max(outputs, 1)
-                print(preds)
-                print(labels)
-                loss = one_v_all_sigmoid_loss(preds, labels)
+                loss = one_v_all_sigmoid_loss(outputs, labels)
                 assert (not torch.isnan(loss).any())
                 # criterion = nn.CrossEntropyLoss()
                 # loss = criterion(outputs, labels)
@@ -122,6 +119,7 @@ if __name__ == "__main__":
     net = net.to(device)
     trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
                                             download=True, transform=transforms)
-    print(len(trainset))
+
     loader = torch.utils.data.DataLoader(trainset, batch_size=10, shuffle=True, num_workers=4)
+    print(len(loader))
     train_model(net, loader, optimizer, exp_lr_scheduler, 25)
