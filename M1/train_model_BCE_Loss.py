@@ -119,4 +119,4 @@ if __name__ == "__main__":
     trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
                                             download=True, transform=transforms)
     loader = torch.utils.data.DataLoader(trainset, batch_size=10, shuffle=True, num_workers=4)
-    train_model(net, loader, optimizer, exp_lr_scheduler, 2)
+    train_model(net, loader, optimizer, exp_lr_scheduler, 25)
