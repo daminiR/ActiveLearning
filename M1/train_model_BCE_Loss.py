@@ -84,11 +84,13 @@ def train_model(model,laoder,  optimizer, scheduler, num_epochs=25):
                 running_corrects += torch.sum(preds == labels.data)
                 print("itertation {}".format(i))
 #
+        print(running_corrects)
         epoch_loss = running_loss / len(dataloader.dataset)
         epoch_acc = running_corrects / len(dataloader.dataset)
         if epoch == 10 :
             torch.save(model.state_dict(), "M1_10")
         print('loss: {:.4f} acc: {:.4f}'.format(epoch_loss, epoch_acc))
+
     print('Best val acc: {:4f}'.format(best_acc))
     torch.save(model.state_dict(), "M1")
     return model
