@@ -82,7 +82,6 @@ def train_model(model,laoder,  optimizer, scheduler, num_epochs=25):
                 # statistics
                 running_loss += loss.item() * inputs.size(0)
                 running_corrects += torch.sum(preds == labels.data)
-                print("itertation {}".format(i))
 #
         print(running_corrects)
         epoch_loss = int(running_loss) / len(dataloader.dataset)
