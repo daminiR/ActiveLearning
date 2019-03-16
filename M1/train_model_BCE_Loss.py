@@ -87,9 +87,11 @@ def train_model(model,laoder,  optimizer, scheduler, num_epochs=25):
 #
         epoch_loss = running_loss / len(dataloader)
         epoch_acc = running_corrects / len(dataloader)
-        torch.save(model.state_dict(), "M1")
-    print('loss: {:.4f} acc: {:.4f}'.format(epoch_loss, epoch_acc))
+        if epoch == 10 :
+            torch.save(model.state_dict(), "M1_10")
+        print('loss: {:.4f} acc: {:.4f}'.format(epoch_loss, epoch_acc))
     print('Best val acc: {:4f}'.format(best_acc))
+    torch.save(model.state_dict(), "M1")
     return model
 
 
@@ -118,5 +120,7 @@ if __name__ == "__main__":
     net = net.to(device)
     trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
                                             download=True, transform=transforms)
+    print(len(trainset))
     loader = torch.utils.data.DataLoader(trainset, batch_size=10, shuffle=True, num_workers=4)
-    train_model(net, loader, optimizer, exp_lr_scheduler, 2)
+    print(len(loader))
+    # train_model(net, loader, optimizer, exp_lr_scheduler, 2)
