@@ -57,7 +57,7 @@ def train_model(model,laoder,  optimizer, scheduler, num_epochs=25):
         running_corrects = 0
 
         # iterate over data
-        for inputs, labels in loader:
+        for i, (inputs, labels) in enumerate(loader):
             inputs = inputs.to(device)
             labels = labels.to(device)
 
@@ -65,10 +65,15 @@ def train_model(model,laoder,  optimizer, scheduler, num_epochs=25):
             optimizer.zero_grad()
             with torch.set_grad_enabled(True):
                 outputs = model(inputs)
-                print(outputs)
+                try:
+                    assert (not torch.isnan(outputs).any())
+                except Exception as e:
+                    print("At batch num: {}".format(i))
+                    print(outputs)
+                    raise e
                 _, preds = torch.max(outputs, 1)
                 loss = one_v_all_sigmoid_loss(outputs, labels)
-                print(loss)
+                assert (not torch.isnan(loss).any())
                 # criterion = nn.CrossEntropyLoss()
                 # loss = criterion(outputs, labels)
                 # backward + optimize only if in training phase
@@ -78,7 +83,8 @@ def train_model(model,laoder,  optimizer, scheduler, num_epochs=25):
                 # statistics
                 running_loss += loss.item() * inputs.size(0)
                 running_corrects += torch.sum(preds == labels.data)
-        #
+                print("Batch {}".format(i))
+#
         epoch_loss = running_loss / len(dataloader)
         epoch_acc = running_corrects / len(dataloader)
         torch.save(model.state_dict(), "M1")
@@ -100,7 +106,7 @@ if __name__ == "__main__":
     # )
 
 
-    optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+    optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.8)
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
     #
     transforms = transforms.Compose([
@@ -112,5 +118,5 @@ if __name__ == "__main__":
     net = net.to(device)
     trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
                                             download=True, transform=transforms)
-    loader = torch.utils.data.DataLoader(trainset, batch_size=16, shuffle=True, num_workers=4)
+    loader = torch.utils.data.DataLoader(trainset, batch_size=5, shuffle=True, num_workers=4)
     train_model(net, loader, optimizer, exp_lr_scheduler, 2)
