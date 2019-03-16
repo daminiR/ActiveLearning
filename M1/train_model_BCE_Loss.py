@@ -72,7 +72,9 @@ def train_model(model,laoder,  optimizer, scheduler, num_epochs=25):
                     print(outputs)
                     raise e
                 _, preds = torch.max(outputs, 1)
-                loss = one_v_all_sigmoid_loss(outputs, labels)
+                print(preds)
+                print(labels)
+                loss = one_v_all_sigmoid_loss(preds, labels)
                 assert (not torch.isnan(loss).any())
                 # criterion = nn.CrossEntropyLoss()
                 # loss = criterion(outputs, labels)
@@ -122,5 +124,4 @@ if __name__ == "__main__":
                                             download=True, transform=transforms)
     print(len(trainset))
     loader = torch.utils.data.DataLoader(trainset, batch_size=10, shuffle=True, num_workers=4)
-    print(len(loader))
-    # train_model(net, loader, optimizer, exp_lr_scheduler, 2)
+    train_model(net, loader, optimizer, exp_lr_scheduler, 25)
