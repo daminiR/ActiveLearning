@@ -5,7 +5,7 @@ import numpy as np
 from scipy.ndimage.filters import gaussian_filter
 import torch
 
-def _KL(p, q):
+def _KL(p, q, device):
     """Calculate the Kullback-Leibler divergens
      between probability distribution p and q.
     Parameters
@@ -21,16 +21,19 @@ def _KL(p, q):
         KL divergence value
 
     """
+
     #convert to array
-    p = p.detach().cpu().numpy()
-    q = q.detach().cpu().numpy()
+    #p = p.detach().cpu().numpy()
+    #q = q.detach().cpu().numpy()
+    zero = torch.zeros(1)
+    zero = zero.to(device)
+    return torch.sum(torch.where(q != 0, p * torch.log(p / q), zero))
+    #return np.sum(np.where(p != 0, p * np.log(p / q), 0))
 
-    return np.sum(np.where(p != 0, p * np.log(p / q), 0))
 
 
 
-
-def calculate_KL_batch(batch):
+def calculate_KL_batch(batch, device = "cpu"):
     """Calculates the KL divergence scores for each image in a batch.
 
     Parameters
@@ -44,12 +47,11 @@ def calculate_KL_batch(batch):
         (n x 1) tensor of KL scores for each image within the batch
 
     """
-    print(len(batch))
     KL_scores = [0] * len(batch)
     for i in range(len(batch)):
         running_sum = 0
         for j in range(len(batch)):
-            running_sum += _KL(batch[i], batch[j])
+            running_sum += _KL(batch[i], batch[j], device)
         KL_scores[i] = running_sum
 
     return KL_scores
