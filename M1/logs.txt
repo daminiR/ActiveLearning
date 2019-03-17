@@ -1,0 +1,103 @@
+Files already downloaded and verified
+Files already downloaded and verified
+Epoch 0/24
+----------
+tensor(33072, device='cuda:0')
+loss: 15.8376 acc: 0.6614
+Epoch 1/24
+----------
+tensor(40158, device='cuda:0')
+loss: 9.9941 acc: 0.8032
+Epoch 2/24
+----------
+tensor(42028, device='cuda:0')
+loss: 8.1945 acc: 0.8406
+Epoch 3/24
+----------
+tensor(43351, device='cuda:0')
+loss: 6.9651 acc: 0.8670
+Epoch 4/24
+----------
+tensor(44130, device='cuda:0')
+loss: 6.2481 acc: 0.8826
+Epoch 5/24
+----------
+tensor(44406, device='cuda:0')
+loss: 5.9275 acc: 0.8881
+Epoch 6/24
+----------
+tensor(45103, device='cuda:0')
+loss: 5.2866 acc: 0.9021
+Epoch 7/24
+----------
+tensor(48768, device='cuda:0')
+loss: 1.4640 acc: 0.9754
+Epoch 8/24
+----------
+tensor(49676, device='cuda:0')
+loss: 0.4911 acc: 0.9935
+Epoch 9/24
+----------
+tensor(49893, device='cuda:0')
+loss: 0.2163 acc: 0.9979
+Epoch 10/24
+----------
+tensor(49956, device='cuda:0')
+loss: 0.1199 acc: 0.9991
+Epoch 11/24
+----------
+tensor(49983, device='cuda:0')
+loss: 0.0761 acc: 0.9997
+Epoch 12/24
+----------
+tensor(49981, device='cuda:0')
+loss: 0.0627 acc: 0.9996
+Epoch 13/24
+----------
+tensor(49987, device='cuda:0')
+loss: 0.0449 acc: 0.9997
+Epoch 14/24
+----------
+tensor(49994, device='cuda:0')
+loss: 0.0342 acc: 0.9999
+Epoch 15/24
+----------
+tensor(49993, device='cuda:0')
+loss: 0.0344 acc: 0.9999
+Epoch 16/24
+----------
+tensor(49997, device='cuda:0')
+loss: 0.0270 acc: 0.9999
+Epoch 17/24
+----------
+tensor(49995, device='cuda:0')
+loss: 0.0279 acc: 0.9999
+Epoch 18/24
+----------
+tensor(49999, device='cuda:0')
+loss: 0.0236 acc: 1.0000
+Epoch 19/24
+----------
+tensor(49999, device='cuda:0')
+loss: 0.0248 acc: 1.0000
+Epoch 20/24
+----------
+tensor(50000, device='cuda:0')
+loss: 0.0241 acc: 1.0000
+Epoch 21/24
+----------
+tensor(49999, device='cuda:0')
+loss: 0.0210 acc: 1.0000
+Epoch 22/24
+----------
+tensor(49996, device='cuda:0')
+loss: 0.0249 acc: 0.9999
+Epoch 23/24
+----------
+tensor(49998, device='cuda:0')
+loss: 0.0192 acc: 1.0000
+Epoch 24/24
+----------
+tensor(49996, device='cuda:0')
+loss: 0.0213 acc: 0.9999
+Best val acc: 0.000000
