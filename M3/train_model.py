@@ -155,7 +155,13 @@ num_class = len(list(class_names))
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 vgg16 = models.vgg16(pretrained=True)
-
+ct = 0
+for child in vgg16.children():
+    print(child)
+    ct += 1
+    if ct < 17:
+        for param in child.parameters():
+            param.requires_grad = False
 num_ftrs = vgg16.classifier[-1].in_features
 vgg16.classifier[-1] = nn.Linear(num_ftrs, num_class)
 vgg16 = vgg16.to(device)
