@@ -144,7 +144,8 @@ def train_model(model, criterion, optimizer, scheduler,distList, num_epochs=25):
       trainIterations = 0
       lambdac= 0.8
       storeImages = []
-
+      trainIlist = []
+      runningAccList = []
         #repeat until certain training loss or accuracy is reached? 
 
         #select active learning instances using critertion score 
@@ -213,12 +214,23 @@ def train_model(model, criterion, optimizer, scheduler,distList, num_epochs=25):
               running_corrects += torch.sum(preds == activeLearningLabels.data)
               running_acc = running_corrects/trainIterations*batch_size
               print(running_acc)
+              print(trainIterations)
+              trainIlist.append(trainIterations)
+              runningAccList.append(running_acc)
+
             #statistic outside while loop 
           epoch_loss = running_loss / dataset_sizes[phase]
           epoch_acc = running_corrects / dataset_sizes[phase]
 
           print('{} loss: {:.4f} acc: {:.4f}'.format(phase, epoch_loss, epoch_acc))
           print()
+
+          #plotting training accuracy graph:
+          fig = plt.figure()
+          plt.plot(trainIlist,runningAccList)
+          plt.ylabel('Training Accuracy')
+          plt.xlabel('Batch No')
+          plt.title('Training Accuracy after a each batch')
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
