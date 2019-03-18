@@ -13,7 +13,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class AlexNet(nn.Module):
 
-    def __init__(self, num_classes=10):
+    def __init__(self, num_classes=1000):
         super(AlexNet, self).__init__()
         self.features = nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=11, stride=4, padding=2),
@@ -37,8 +37,8 @@ class AlexNet(nn.Module):
             nn.Dropout(),
             nn.Linear(4096, 4096),
             nn.ReLU(inplace=True),
-            nn.Linear(4096, num_classes),
-            nn.Linear(num_classes, 10)
+            nn.Linear(4096, num_classes)
+            #nn.Linear(num_classes, 10)
         )
 
     def forward(self, x):
@@ -57,11 +57,11 @@ def alexnet(pretrained=False, **kwargs):
     
     model = AlexNet(**kwargs)
     if pretrained:
-        pretrained_weights = model_zoo.load_url(model_urls['alexnet'])
-        new_dict = {k.replace('module.',''):v for k, v in pretrained_weights.items()}
-        this_state = model.state_dict()
-        this_state.update(new_dict)
-        model.load_state_dict(this_state)
-        #model.load_state_dict(model_zoo.load_url(model_urls['alexnet']))
-    model = model.to(device)
+        #pretrained_weights = model_zoo.load_url(model_urls['alexnet'])
+        #new_dict = {k.replace('module.',''):v for k, v in pretrained_weights.items()}
+        #this_state = model.state_dict()
+        #this_state.update(new_dict)
+        #model.load_state_dict(this_state)
+        model.load_state_dict(model_zoo.load_url(model_urls['alexnet']))
+    #model = model.to(device)
     return model

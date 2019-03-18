@@ -38,6 +38,8 @@ fashion_train = datasets.CIFAR10("/home/shay/a/ighodgao/CAM2",
 fashion_test = datasets.CIFAR10("/home/shay/a/ighodgao/CAM2", 
         train=False, transform=transform, target_transform=None, download=True)
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(device)
 
 # WHOLE DATASET
 # train_loader = torch.utils.data.DataLoader(dataset=fashion_train,
@@ -52,16 +54,22 @@ classes = ("plane", "automobile","bird", "cat", "deer",
 #------------------------------------------------------------------------------
 
 
+num_classes = 10
 # Initialize the pre-trained model
 al = ax.alexnet(pretrained=True)
+classifier = list(al.classifier.children())
+al.classifier = nn.Sequential(*classifier[:-1])
+al.classifier.add_module('6', nn.Linear(classifier[-1].in_features, num_classes))
+al = al.to(device)
 
-train_loader = torch.utils.data.DataLoader(dataset=fashion_train,
-                                           batch_size=batch_size,
-                                           sampler = u.data.SubsetRandomSampler(list(range(1,10000))))
+train_loader = torch.utils.data.DataLoader(dataset=fashion_train, batch_size=batch_size, shuffle = True)
 test_loader = torch.utils.data.DataLoader(dataset=fashion_test,
-                                          batch_size=batch_size,
-                                          sampler = u.data.SubsetRandomSampler(list(range(1,10000))))
+                                         batch_size=batch_size,
+                                         shuffle = True)
 
+
+training_dataset = enumerate(train_loader, 0)
+testing_dataset = enumerate(test_loader, 0)
 
 al.eval()
 print("in Testing mode")
@@ -70,12 +78,15 @@ total = 0
 with torch.no_grad():
     for data in test_loader:
         images, labels = data
-        outputs = al(images.cuda())
+        images = images.to(device)
+        labels = labels.to(device)
+        outputs = al(images)
         _, predicted = torch.max(outputs.data, 1)
         total += labels.size(0)
         correct += (predicted == labels).sum().item()
 
 accuracy = 100*correct/total
+print(accuracy)
 #------------------------------------------------------------------------------
 x.append(0)
 y.append(accuracy)
@@ -84,10 +95,8 @@ y.append(accuracy)
 al.train()
 print("in Training mode")
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(al.parameters(), lr=0.1, momentum=1)
+optimizer = optim.SGD(al.parameters(), lr=0.001, momentum=0.9)
 
-
-training_dataset = enumerate(train_loader, 0)
 
 running_loss = 0.0
 #for i, data in enumerate(train_loader, 0):
@@ -95,14 +104,16 @@ for num in range (0, 100):
     i, data = next(training_dataset)
     al.train()
     inputs, labels = data
+    inputs = inputs.to(device)
+    labels = labels.to(device)
     optimizer.zero_grad()
-    outputs = al(inputs.cuda())
+    outputs = al(inputs)
     loss = criterion(outputs, labels)
     loss.backward()
     optimizer.step()
     running_loss += loss.item()
     print('Finished finetuning on one batch')
-
+    print(loss)
     #Test accuracy of all testing images overall ----------------------------------
     al.eval()
     correct = 0
@@ -110,7 +121,9 @@ for num in range (0, 100):
     with torch.no_grad():
         for data in test_loader:
             images, labels = data
-            outputs = al(images.cuda())
+            images = images.to(device)
+            labels = labels.to(device)
+            outputs = al(images)
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
@@ -119,31 +132,35 @@ for num in range (0, 100):
     #------------------------------------------------------------------------------
     x.append(i+1)
     y.append(accuracy)
-
+    '''
     # #Test accuracy per class ------------------------------------------------------
     class_correct = list(0. for i in range(10))
     class_total = list(0. for i in range(10))
     with torch.no_grad():
         for data in test_loader:
             images, labels = data
-            outputs = al(images.cuda())
+            images = images.to(device)
+            labels = labels.to(device)
+            outputs = al(images)
             _, predicted = torch.max(outputs, 1)
             c = (predicted == labels).squeeze()
             for i in range(9):
                 label = labels[i]
                 class_correct[label] += c[i].item()
                 class_total[label] += 1
-
+    
     for i in range(10):
         if class_total[i] == 0:
             print('Accuracy of %5s : %2d %%' % (classes[i], 0))
         else:
             print('Accuracy of %5s : %2d %%' % (
             classes[i], 100 * class_correct[i] / class_total[i]))
+    '''
     # #------------------------------------------------------------------------------
 end = time.time()
 print("time: ", end - start)
-
+print(x)
+print(y)
 plt.plot(x, y)
 plt.axis([0, len(x)-1, 0, 100])
 plt.show()
