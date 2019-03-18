@@ -16,10 +16,12 @@ class UnlabelledDataset(torch.utils.data.Dataset):
     Arguments:
         1. dataset_name (String): Name of the dataset user wish to load. The local image folder should be in the
            following format: cwd/dataset_name/train and cwd/dataset_name/test
-        2. transforms (Callable, optional): A function that takes in an image and return the transformed version.
+        2. transforms_train (Callable): A function that takes in a train image and return the transformed version.
+        3. transforms_test (Callable): A function that takes in a test image and return the transformed version.
+        4. num_classes (int): Only fill this if you are using a custom dataset that's not in PyTorch
     """
 
-    def __init__(self, dataset_name, transform_train=None, transform_test=None):
+    def __init__(self, dataset_name, transform_train=None, transform_test=None, num_classes=0):
         available_datasets = ['MNIST', 'FashionMNIST', 'CIFAR10', 'CIFAR100']
         self.transform_train = transform_train
         if dataset_name in available_datasets:
@@ -28,25 +30,30 @@ class UnlabelledDataset(torch.utils.data.Dataset):
                                                     train=True, download=True)
                 self.dataset_test = datasets.MNIST(root=os.path.join(os.getcwd(), dataset_name),
                                                    train=False, download=True, transform=transform_test)
+                self.num_classes = 10
             if dataset_name == 'FashionMNIST':
                 self.dataset_train = datasets.FashionMNIST(root=os.path.join(os.getcwd(), dataset_name),
                                                            train=True, download=True)
                 self.dataset_test = datasets.FashionMNIST(root=os.path.join(os.getcwd(), dataset_name),
                                                           train=False, download=True, transform=transform_test)
+                self.num_classes = 10
             if dataset_name == 'CIFAR10':
                 self.dataset_train = datasets.CIFAR10(root=os.path.join(os.getcwd(), dataset_name),
                                                       train=True, download=True)
                 self.dataset_test = datasets.CIFAR10(root=os.path.join(os.getcwd(), dataset_name),
                                                      train=False, download=True, transform=transform_test)
+                self.num_classes = 10
             if dataset_name == 'CIFAR100':
                 self.dataset_train = datasets.CIFAR100(root=os.path.join(os.getcwd(), dataset_name),
                                                        train=True, download=True)
                 self.dataset_test = datasets.CIFAR100(root=os.path.join(os.getcwd(), dataset_name),
                                                       train=False, download=True, transform=transform_test)
+                self.num_classes = 100
         else:
             path = os.path.join(os.getcwd(), dataset_name)
             self.dataset_train = datasets.ImageFolder(root=os.path.join(path, 'train'))
             self.dataset_test = datasets.ImageFolder(root=os.path.join(path, 'test'), transform=transform_test)
+            self.num_classes = num_classes
         self.labelled_index = np.ones(len(self.dataset_train))
 
     def __getitem__(self, index):
@@ -70,6 +77,7 @@ class UnlabelledDataset(torch.utils.data.Dataset):
     def mark(self, index):
         for i in index:
             self.labelled_index[i] = 0
+
 
 
 class SequentialSubsetSampler(torch.utils.data.Sampler):
@@ -99,7 +107,7 @@ class UncertaintySampler:
         2. sample_size (int): The number of images to be sent to the GPU at one iteration.
         3. verbose (boolean): If True, calling calculate_uncertainty will print the entropy list and
                               display the image with the highest uncertainty.
-        4. iteration (int)  : Number of sampling
+        4. iteration (int)  : Number of sampling. To get full dataset, set iteration to None
     """
 
     def __init__(self, threshold=0.5, sample_size=8, verbose=True, iteration=10):
@@ -107,7 +115,6 @@ class UncertaintySampler:
         self.sample_size = sample_size
         self.verbose = verbose
         self.iteration = iteration
-    #     TODO: How to set max iterations
 
     """
     Function to calculate entropy value of a dataset.
@@ -117,14 +124,15 @@ class UncertaintySampler:
         2. dataset (UnlabelledDataset): The target domain dataset
     
     Return:
-        1. List of tuples in the format [(index, entropy), (index, entropy),..]
+        1. List of tuples in the format [(index, (entropy, tensor), (index, (entropy, tensor)),..]
     """
 
-    def calculate_uncertainty(self, model, dataset, device='cpu'):
+    def calculate_uncertainty(self, model, dataset):
         loader = torch.utils.data.DataLoader(dataset, batch_size=self.sample_size,
                                              sampler=SequentialSubsetSampler(np.where(dataset.labelled_index)[0]))
         uncertainty_dict = {}
         model.eval()
+        num_classes = dataset.num_classes
 
         for idx, value in enumerate(loader):
             data, label, index = value
@@ -135,19 +143,20 @@ class UncertaintySampler:
                 #print(torch.max(outputs))
                 # TODO: ensure results are stable
                 pred = softmax(outputs)
-            uncertainty_dict = self._update_uncertainty_dict(uncertainty_dict, index, pred)
-            #if idx+1 == self.iteration:
-            #    break
+            uncertainty_dict = self._update_uncertainty_dict(uncertainty_dict, index, pred, num_classes)
+            # if idx+1 == self.iteration:
+            #     break
 
         uncertainty_list = sorted(uncertainty_dict.items(), key=lambda kv: (kv[1][0], kv[0]), reverse=True)
         if self.verbose:
             print(uncertainty_list)
+            imageData, _ = (next(iter(uncertainty_list))[1])
             self._visualize_image(dataset[next(iter(uncertainty_list))[0]][0],
-                                  'Most Uncertain Image, Entropy = %.3f' % next(iter(uncertainty_list))[1])
+                                  'Most Uncertain Image, Entropy = %.3f' % imageData)
         return uncertainty_list
 
-    def _update_uncertainty_dict(self, uncertainty_dict, index, prediction):
-        uncertainty = self._entropy(prediction)
+    def _update_uncertainty_dict(self, uncertainty_dict, index, prediction, num_classes):
+        uncertainty = self._entropy(prediction, num_classes)
         for key, value in enumerate(uncertainty):
             if value > self.threshold:
                 uncertainty_dict[int(index[key:key + 1])] = (float(value), prediction[key])
@@ -162,9 +171,8 @@ class UncertaintySampler:
         plt.title(title)
         plt.show()
 
-    @staticmethod
-    def _entropy(prediction):
-        return torch.div(torch.sum(-prediction * torch.log2(prediction), dim=1), log(10, 2))
+    def _entropy(self, prediction, num_classes):
+        return torch.div(torch.sum(-prediction * torch.log2(prediction), dim=1), log(num_classes, 2))
 
 
 if __name__ == '__main__':
@@ -177,7 +185,7 @@ if __name__ == '__main__':
     ])
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    dataset = UnlabelledDataset('CIFAR10', transforms=transforms)
+    dataset = UnlabelledDataset('CIFAR10', transform_train=transforms)
     net = models.resnet18(pretrained=True)
     num_ftrs = net.fc.in_features
     net.fc = nn.Linear(num_ftrs, NUM_CLASSES)
