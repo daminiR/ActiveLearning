@@ -10,8 +10,8 @@ from scipy import stats
 
 start_time = time.time()
 
-phases = ['train']
-
+phases = ['train','val']
+batch_size = 4
 
 # os.environ['CUDA_VISIBLE_DEVICES'] = '2'
 
@@ -126,75 +126,117 @@ def find_center(model, dataloader, num_class, class_names, means):
             labels = labels[diff_class]
     return center_img
 
+def sortFunction(val):
+    return val[0]
 
-def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
+def train_model(model, criterion, optimizer, scheduler,distList, num_epochs=25):
     since = time.time()
 
-    best_model_wts = copy.deepcopy(model.statedict())
-    best_acc = 0.0
+    for phase in ['train']:
+      if phase=='train':
+          scheduler.step()
+          model.train()
+      else:
+          model.eval()
 
-    for epoch in range(num_epochs):
-        print('Epoch {}/{}'.format(epoch, num_epochs - 1))
-        print('-' * 10)
+      running_loss = 0.0
+      running_corrects = 0
+      trainIterations = 0
+      lambdac= 0.8
+      storeImages = []
+      trainIlist = []
+      runningAccList = []
+        #repeat until certain training loss or accuracy is reached? 
 
-        for phase in phases:
-            if phase == 'train':
-                scheduler.step()
-                model.train()
-            else:
-                model.eval()
+        #select active learning instances using critertion score 
+      if phase == 'train':
+          for inputs,labels in dataloaders['train']:
+              #print('thisis how it should look')
+              #print(inputs)
+              #print(labels)
+              for ind in range(batch_size):
+                  storeImages.append((inputs[ind],labels[ind]))
 
-            running_loss = 0.0
-            running_corrects = 0
+          #train until accuracy of training is <= 0.7
+          running_acc = 0.0 
+          while(running_acc <= 0.7):
+              #calculate critertion score after every you train with a batch:
 
-            # iterate over data
-            for inputs, labels in dataloaders[phase]:
-                inputs = inputs.to(device)
-                labels = labels.to(device)
+              criterionScores = []
 
-                # zero the parameter gradients
-                optimizer.zero_grad()
 
-                # forward
-                # track history if only in train
-                with torch.set_grad_enabled(phase == 'train'):
-                    outputs = model(inputs)
-                    print(outputs)
-                    _, preds = torch.max(outputs, 1)
-                    loss = criterion(outputs, labels)
+              for imageNo in range(len(storeImages)):
+                  distinctiveness = distList[imageNo]
+                  imagecriterionScore = (1 - lambdac*trainIterations*distinctiveness,imageNo)
+                  criterionScores.append(imagecriterionScore)
+                                    
+              #sort criterionScore list by first val
+              criterionScores.sort(key = sortFunction)
 
-                    # backward + optimize only if in training phase
-                    if phase == 'train':
-                        loss.backward()
-                        optimizer.step()
+              #choose the last batch_size in the training set 
+              activeLearningInputs = []
+              activeLearningLabels = []
+              for ind in range(batch_size):
+                  _, alImageNo = criterionScores.pop()
+                  alInput,alLabel = storeImages.pop(alImageNo)
+                  #print(alInput)
+                  #print(alLabel)
+                  activeLearningInputs.append(alInput)
+                  activeLearningLabels.append(alLabel)
+              
+              #train the data:
+              trainIterations = trainIterations+1 
 
-                # statistics
-                running_loss += loss.item() * inputs.size(0)
-                running_corrects += torch.sum(preds == labels.data)
+              activeLearningInputsT = torch.stack(activeLearningInputs)
+              #print(activeLearningInputsT)
+              #print(device); 
+              activeLearningInputsT = activeLearningInputsT.to(device) 
+              activeLearningLabels = torch.stack(activeLearningLabels)
+              activeLearningLabels =  activeLearningLabels.to(device)
 
-            epoch_loss = running_loss / dataset_sizes[phase]
-            epoch_acc = running_corrects / dataset_sizes[phase]
 
-            print('{} loss: {:.4f} acc: {:.4f}'.format(phase, epoch_loss, epoch_acc))
+              # zero the parameter gradients
+              optimizer.zero_grad()
 
-            # deep copy the model
-            if phase == 'val' and epoch_acc > best_acc:
-                best_acc = epoch_acc
-                best_model_wts = copy.deepcopy(model.statedict())
+              # forward
+              # track history if only in train
+              with torch.set_grad_enabled(phase == 'train'):
+                  outputs = model(activeLearningInputsT)
+                  #print(outputs)
+                  _, preds = torch.max(outputs, 1)
+                  loss = criterion(outputs, activeLearningLabels)
 
-        print()
+              loss.backward()
+              optimizer.step()
+
+              # statistics
+              running_loss += loss.item() * inputs.size(0)
+              running_corrects += torch.sum(preds == activeLearningLabels.data)
+              running_acc = running_corrects/trainIterations*batch_size
+              print(running_acc)
+              print(trainIterations)
+              trainIlist.append(trainIterations)
+              runningAccList.append(running_acc)
+
+            #statistic outside while loop 
+          epoch_loss = running_loss / dataset_sizes[phase]
+          epoch_acc = running_corrects / dataset_sizes[phase]
+
+          print('{} loss: {:.4f} acc: {:.4f}'.format(phase, epoch_loss, epoch_acc))
+          print()
+
+          #plotting training accuracy graph:
+          fig = plt.figure()
+          plt.plot(trainIlist,runningAccList)
+          plt.ylabel('Training Accuracy')
+          plt.xlabel('Batch No')
+          plt.title('Training Accuracy after a each batch')
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
-    print('Best val acc: {:4f}'.format(best_acc))
 
-    if 'val' not in phases:
-        return model
-
-    # laod best model weights
-    model.load_state_dict(best_model_wts)
+    # return model
     return model
-
 
 # inverse normalization
 inv_normalize = transforms.Normalize([-0.485 / 0.229, -0.456 / 0.224, -0.406 / 0.225],
@@ -207,21 +249,28 @@ data_transforms = {
         # transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-    ])
+    ]),
+
+    'val' : transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ]),
+
 }
-batch_size = 4
-data_dir_pretrained = 'centers'
-image_datasets_pretrained = {x: datasets.ImageFolder(os.path.join(data_dir_pretrained, x), data_transforms[x]) for x in
-                             phases}
+
+data_dir_pretrained = '/home/min/a/nrajanee/centers'
+image_datasets_pretrained = {x: datasets.ImageFolder(os.path.join(data_dir_pretrained, x), data_transforms[x]) for x in ['train']}
 class_names_pretrained = image_datasets_pretrained['train'].classes
 num_class_pretrained = len(list(class_names_pretrained))
 dataloaders_pretrained = {
 x: torch.utils.data.DataLoader(image_datasets_pretrained[x], batch_size=batch_size, shuffle=False, num_workers=4) for x
-in phases}
-dataset_sizes_pretrained = {x: len(image_datasets_pretrained[x]) for x in phases}
+in ['train']}
+dataset_sizes_pretrained = {x: len(image_datasets_pretrained[x]) for x in ['train']}
 
 # data_dir = 'voc'
-data_dir = '/home/data/ilsvrc/ILSVRC/ILSVRC2012_Classification'
+data_dir = '/home/min/a/nrajanee/CAM2ActiveLearning/data/hymenoptera_data'
 image_datasets = {x: datasets.ImageFolder(os.path.join(data_dir, x), data_transforms[x]) for x in phases}
 class_names = image_datasets['train'].classes
 num_class = len(list(class_names))
@@ -308,6 +357,8 @@ print('Distinctiveness')
 
 # TODO: set the condition of getting out of while loop
 while (1):
+    distList = [0]*len(image_datasets['train'])
+    imageNo = 0
     for inputs, labels in dataloaders['train']:
         inputs = inputs.to(device)
         labels = labels.to(device)
@@ -326,11 +377,18 @@ while (1):
         approx_patterns_instances_ab.transpose_(0, 1)
         # print(approx_patterns_instances_ab.size())
         for ind in range(batch_size):
-            tau, _ = stats.kendalltau(patterns_instances_ab[ind], approx_patterns_instances_ab[ind])
+            tau, _ = stats.kendalltau(patterns_instances_ab[ind].cpu(), approx_patterns_instances_ab[ind].cpu())
             distinctiveness = (1 - tau) / 2
+            distList[imageNo] = distinctiveness
+            imageNo = imageNo + 1
             print(distinctiveness)
+
+
             # TODO: calculate uncertainty and criterion score, then select the instances with highest criterion score to train the model continuously
             # printing distinctiveness to stdout to analyze the metrics
     break
 
+train_model(vgg16,criterion,optimizer,exp_lr_scheduler,distList,num_epochs = 1)
 print('Execution time: {}s'.format(time.time() - start_time))
+
+
