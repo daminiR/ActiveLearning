@@ -33,9 +33,9 @@ normalize = transforms.Normalize(
 resize = transforms.Resize((227, 227))
 transform = transforms.Compose([resize, transforms.ToTensor(), normalize])
 
-fashion_train = datasets.CIFAR10("/Users/ishaghodgaonkar/.spyder-py3", 
+fashion_train = datasets.CIFAR10("/home/shay/a/ighodgao/CAM2", 
         train=True, transform=transform, target_transform=None, download=True)
-fashion_test = datasets.CIFAR10("/Users/ishaghodgaonkar/.spyder-py3", 
+fashion_test = datasets.CIFAR10("/home/shay/a/ighodgao/CAM2", 
         train=False, transform=transform, target_transform=None, download=True)
 
 
@@ -46,14 +46,7 @@ fashion_test = datasets.CIFAR10("/Users/ishaghodgaonkar/.spyder-py3",
 # test_loader = torch.utils.data.DataLoader(da#taset=fashion_test,
 #                                          batch_size=batch_size,
 #                                          shuffle = True)
-
-train_loader = torch.utils.data.DataLoader(dataset=fashion_train,
-                                           batch_size=batch_size,
-                                           sampler = u.data.SubsetRandomSampler(list(range(1,100))))
-test_loader = torch.utils.data.DataLoader(dataset=fashion_test,
-                                          batch_size=batch_size,
-                                          sampler = u.data.SubsetRandomSampler(list(range(1,100))))
-                
+           
 classes = ("plane", "automobile","bird", "cat", "deer", 
          "dog", "frog",  "horse",  "ship", "truck")
 #------------------------------------------------------------------------------
@@ -64,10 +57,10 @@ al = ax.alexnet(pretrained=True)
 
 train_loader = torch.utils.data.DataLoader(dataset=fashion_train,
                                            batch_size=batch_size,
-                                           sampler = u.data.SubsetRandomSampler(list(range(1,100))))
+                                           sampler = u.data.SubsetRandomSampler(list(range(1,10000))))
 test_loader = torch.utils.data.DataLoader(dataset=fashion_test,
                                           batch_size=batch_size,
-                                          sampler = u.data.SubsetRandomSampler(list(range(1,100))))
+                                          sampler = u.data.SubsetRandomSampler(list(range(1,10000))))
 
 
 al.eval()
@@ -77,7 +70,7 @@ total = 0
 with torch.no_grad():
     for data in test_loader:
         images, labels = data
-        outputs = al(images)
+        outputs = al(images.cuda())
         _, predicted = torch.max(outputs.data, 1)
         total += labels.size(0)
         correct += (predicted == labels).sum().item()
@@ -94,12 +87,16 @@ criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(al.parameters(), lr=0.1, momentum=1)
 
 
+training_dataset = enumerate(train_loader, 0)
+
 running_loss = 0.0
-for i, data in enumerate(train_loader, 0):
+#for i, data in enumerate(train_loader, 0):
+for num in range (0, 100):
+    i, data = next(training_dataset)
     al.train()
     inputs, labels = data
     optimizer.zero_grad()
-    outputs = al(inputs)
+    outputs = al(inputs.cuda())
     loss = criterion(outputs, labels)
     loss.backward()
     optimizer.step()
@@ -113,7 +110,7 @@ for i, data in enumerate(train_loader, 0):
     with torch.no_grad():
         for data in test_loader:
             images, labels = data
-            outputs = al(images)
+            outputs = al(images.cuda())
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
@@ -129,7 +126,7 @@ for i, data in enumerate(train_loader, 0):
     with torch.no_grad():
         for data in test_loader:
             images, labels = data
-            outputs = al(images)
+            outputs = al(images.cuda())
             _, predicted = torch.max(outputs, 1)
             c = (predicted == labels).squeeze()
             for i in range(9):
