@@ -27,7 +27,7 @@ def _KL(p, q, device):
     #q = q.detach().cpu().numpy()
     zero = torch.zeros(1)
     zero = zero.to(device)
-    return torch.sum(torch.where(q != 0, p * torch.log(p / q), zero))
+    return torch.sum(torch.where(q != 0, p * torch.log2(p / q), zero))
     #return np.sum(np.where(q != 0, p * np.log(p / q), 0))
 
 
@@ -56,34 +56,26 @@ def calculate_KL_batch(batch, batch_size, device = "cpu"):
             running_sum = _KL(batch[i], batch[j], device) + _KL(batch[j], batch[i], device)
             KL_scores[i][j] = running_sum
             KL_scores[j][i] = running_sum
+    # print(KL_scores)
 
-    # Initialization
-    KL_greedy_dict = {}
-    index = set()
+    # Make the first greedy choice by taking the max from KL_scores
+    ind1, ind2 = np.unravel_index(np.argmax(KL_scores, axis=None), KL_scores.shape)
+
+    # Intitialize index and KL_with_chosen_sum for the first two indices
+    index = [ind1, ind2]
+    KL_with_chosen_sum = KL_scores[ind1]
 
     # Only need batch_size amount of instances to be queried
     while(len(index) != batch_size):
-        # Find the next indices of instances to be queried
-        if(KL_greedy_dict == {}):
-            ind1, ind2 = np.unravel_index(np.argmax(KL_scores, axis=None), KL_scores.shape)
-        else:
-            ind1, val1 = max(KL_greedy_dict.items(), key=lambda x: x[1][0])
-            ind2 = val1[1]
+        # Update KL_with_chosen_sum
+        KL_with_chosen_sum += KL_scores[ind2]
+        for ind in index:
+            KL_with_chosen_sum[ind] = 0
+        
+        # Find the next index of instances to be queried and update it
+        ind2 = np.argmax(KL_with_chosen_sum)
+        index.append(ind2)
 
-        # Update index and KL_scores
-        index.update([ind1, ind2])
-        KL_scores[ind1][ind2] = 0
-        KL_scores[ind2][ind1] = 0
-
-        # Find the values necessary to update KL_greedy_dict
-        ind_other1 = np.argmax(KL_scores[ind1])
-        ind_other2 = np.argmax(KL_scores[ind2])
-        kl1 = KL_scores[ind1][ind_other1]
-        kl2 = KL_scores[ind2][ind_other2]
-
-        # Update KL_greedy_dict
-        KL_greedy_dict[ind1] = (kl1, ind_other1)
-        KL_greedy_dict[ind2] = (kl2, ind_other2)
     return index
 
 def smoothed_hist_kl_distance(a, b, nbins=10, sigma=1):
@@ -108,6 +100,6 @@ if __name__ == "__main__":
     #         #append the input to the list
     # print(smoothed_hist_kl_distance(a,b))
 
-    batch = torch.rand((3, 5))
+    batch = torch.rand((5, 5))
     print(batch)
-    print(calculate_KL_batch(batch))
+    print(calculate_KL_batch(batch, 4))
