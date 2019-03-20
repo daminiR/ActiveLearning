@@ -46,6 +46,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=50, num_itera
                 uncertainty = M2.calculate_uncertainty(model, dataset, device)
                 uncertainty = uncertainty[0:(2 * batch_size)]
                 uncertainty = zip(*uncertainty)
+
                 index, val = uncertainty
                 _, pred = zip(*val)
 
@@ -232,19 +233,19 @@ data_transforms = {
 
 batch_size = 64
 class_names = ['benign', 'malignant']
-num_class = 2
+num_class = 102
 # med_data = UnlabelledDataset("MEDICAL", transform_train=data_transforms['train'], transform_test=['test'])
-med_data = MyImageFolder('D:/ISIC-Archive-Downloader-master/Data/Skin_Lesions/train/',
+med_data = MyImageFolder('D:/CALTECH101/train',
                                                   transform=data_transforms['train'])
-med_test = data = torchvision.datasets.ImageFolder('D:/ISIC-Archive-Downloader-master/Data/Skin_Lesions/test', transform=data_transforms['test'])
+med_test = data = torchvision.datasets.ImageFolder('D:/CALTECH101/test', transform=data_transforms['test'])
 dataloader_test = torch.utils.data.DataLoader(med_test, batch_size=64, shuffle=False, num_workers=0)
 dataset_size_test = len(med_test)
 vgg16 = models.vgg16(pretrained=True)
 # num_layer_freeze = 17
 # freeze_weights(vgg16,num_layer_freeze)
-vgg16.classifier[-1] = nn.Linear(in_features=4096, out_features=2)
+vgg16.classifier[-1] = nn.Linear(in_features=4096, out_features=102)
 vgg16 = vgg16.to(device)
-# dataset = find_unseen_dataset(batch_size, med_data)
+dataset = find_unseen_dataset(batch_size, med_data)
 dataset = med_data
 criterion = nn.CrossEntropyLoss()
 # observe that all parameters are being optimized
