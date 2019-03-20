@@ -22,7 +22,7 @@ class UnlabelledDataset(torch.utils.data.Dataset):
     """
 
     def __init__(self, dataset_name, transform_train=None, transform_test=None, num_classes=0):
-        available_datasets = ['MNIST', 'FashionMNIST', 'CIFAR10', 'CIFAR100']
+        available_datasets = ['MNIST', 'FashionMNIST', 'CIFAR10', 'CIFAR100', "MEDICAL"]
         self.transform_train = transform_train
         if dataset_name in available_datasets:
             if dataset_name == 'MNIST':
@@ -49,11 +49,14 @@ class UnlabelledDataset(torch.utils.data.Dataset):
                 self.dataset_test = datasets.CIFAR100(root=os.path.join(os.getcwd(), dataset_name),
                                                       train=False, download=True, transform=transform_test)
                 self.num_classes = 100
+
         else:
+            print("here")
             path = os.path.join(os.getcwd(), dataset_name)
-            self.dataset_train = datasets.ImageFolder(root=os.path.join(path, 'train'))
+            self.dataset_train = datasets.ImageFolder(root=os.path.join(path, 'train'), transform=transform_train)
             self.dataset_test = datasets.ImageFolder(root=os.path.join(path, 'test'), transform=transform_test)
             self.num_classes = num_classes
+
         self.labelled_index = np.ones(len(self.dataset_train))
 
     def __getitem__(self, index):
@@ -70,14 +73,14 @@ class UnlabelledDataset(torch.utils.data.Dataset):
 
     Arguments:
         1. index (list-like): index of the current set of images sent to be labelled. 
-    
+
     Return:
         Void
     """
+
     def mark(self, index):
         for i in index:
             self.labelled_index[i] = 0
-
 
 
 class SequentialSubsetSampler(torch.utils.data.Sampler):
@@ -122,25 +125,28 @@ class UncertaintySampler:
     Arguments:
         1. model (Model)              : Current model
         2. dataset (UnlabelledDataset): The target domain dataset
-    
+
     Return:
         1. List of tuples in the format [(index, (entropy, tensor), (index, (entropy, tensor)),..]
     """
 
-    def calculate_uncertainty(self, model, dataset):
+    def calculate_uncertainty(self, model, dataset, device):
+        # loader = torch.utils.data.DataLoader(dataset, batch_size=self.sample_size,
+        #                                      sampler=SequentialSubsetSampler(np.where(dataset.labelled_index)[0]))
         loader = torch.utils.data.DataLoader(dataset, batch_size=self.sample_size,
-                                             sampler=SequentialSubsetSampler(np.where(dataset.labelled_index)[0]))
+                                             sampler=SequentialSubsetSampler(range(len(dataset))))
         uncertainty_dict = {}
         model.eval()
-        num_classes = dataset.num_classes
-
+        print(type(dataset))
+        # num_classes = dataset.num_classes
+        num_classes = 2
         for idx, value in enumerate(loader):
             data, label, index = value
             data = data.to(device)
             softmax = nn.Softmax(dim=1)
             with torch.no_grad():
                 outputs = model(data)
-                #print(torch.max(outputs))
+                # print(torch.max(outputs))
                 # TODO: ensure results are stable
                 pred = softmax(outputs)
             uncertainty_dict = self._update_uncertainty_dict(uncertainty_dict, index, pred, num_classes)
