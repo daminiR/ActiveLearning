@@ -24,8 +24,8 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=50, num_itera
 
     M2 = UncertaintySampler(sample_size=batch_size, verbose=False)
 
-    f = open("a.out", "w")
-    f.write("loss (every 20 instances), acc (every 20 instances)\n")
+    f = open("CIFAR_VGG16_64.txt", "w")
+    f.write("loss , acc \n")
 
     for epoch in range(   num_epochs):
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
@@ -34,7 +34,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=50, num_itera
         if 'train' in phases:
             print("it went in train")
             scheduler.step()
-            # model.train()
+            model.train()
 
             running_loss = 0.0
             running_corrects = 0
@@ -227,19 +227,18 @@ data_transforms = {
     ])
 }
 
-batch_size = 4
-
+batch_size = 64
+dataset_full_test = UnlabelledDataset('CIFAR10', transform_train=data_transforms['train'], transform_test=data_transforms['test'])
 class_file = open("../M3/CIFAR10/cifar-10-batches-py/batches.meta", "rb")
 class_names = pickle.load(class_file)
 print(class_names['label_names'])
 num_class = len(list(class_names['label_names']))
 print(num_class)
-dataset_full_test = UnlabelledDataset('CIFAR10', transform_train=data_transforms['train'], transform_test=data_transforms['test'])
 dataloader_test = torch.utils.data.DataLoader(dataset_full_test.dataset_test, batch_size=4, shuffle=False, num_workers=0)
 dataset_size_test = len(dataset_full_test.dataset_test)
 data_inds = (1,2,3,4,5,6,7,8)
 
-dev = torch.utils.data.DataLoader(dataset_full_test, batch_size=4,sampler=SubsetRandomSampler(data_inds))
+dev = torch.utils.data.DataLoader(dataset_full_test, batch_size=64,sampler=SubsetRandomSampler(data_inds))
 vgg16 = models.vgg16(pretrained=True)
 # num_layer_freeze = 17
 # freeze_weights(vgg16,num_layer_freeze)
@@ -251,6 +250,5 @@ criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(vgg16.parameters(), lr=0.0005, momentum=0.9, weight_decay=5e-4)
 # decay LR by a factor of 0.1 every 7 epochs
 exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
-vgg16 = train_model(vgg16, criterion, optimizer, exp_lr_scheduler, num_epochs=25)
-
+vgg16 = train_model(vgg16, criterion, optimizer, exp_lr_scheduler, num_epochs=70)
 print('Execution time: {}s'.format(time.time() - start_time))

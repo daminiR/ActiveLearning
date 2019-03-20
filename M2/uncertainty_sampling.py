@@ -137,9 +137,9 @@ class UncertaintySampler:
                                              sampler=SequentialSubsetSampler(range(len(dataset))))
         uncertainty_dict = {}
         model.eval()
-        print(type(dataset))
+        print(len(dataset))
         # num_classes = dataset.num_classes
-        num_classes = 2
+        num_classes = 102
         for idx, value in enumerate(loader):
             data, label, index = value
             data = data.to(device)

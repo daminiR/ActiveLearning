@@ -141,7 +141,7 @@ def accept_target_data_m1(net, loader):
 
 
 def find_unseen_dataset(size_batch, dataset):
-    model_path = "../M1/bloss_cifar"
+    model_path = "../../bloss_cifar"
     net = models.vgg16(pretrained=True)
     #todo: make functionfor this
 
@@ -166,6 +166,7 @@ def find_unseen_dataset(size_batch, dataset):
     # loader = torch.utils.data.DataLoader(dataset, batch_size=8,
     #                                      sampler=SequentialSubsetSampler(range(len(dataset))))
     data_inds = accept_target_data_m1(net, loader)
+    print(data_inds)
     subset_loader = torch.utils.data.DataLoader(dataset, batch_size=size_batch,sampler=SubsetRandomSampler(data_inds))
     unseen_dataset = subset_loader.dataset
     print(unseen_dataset)
