@@ -1,6 +1,6 @@
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
-
+import torch
 
 __all__ = ['AlexNet', 'alexnet']
 
@@ -9,10 +9,11 @@ model_urls = {
     'alexnet': 'https://download.pytorch.org/models/alexnet-owt-4df8aa71.pth',
 }
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class AlexNet(nn.Module):
 
-    def __init__(self, num_classes=10):
+    def __init__(self, num_classes=1000):
         super(AlexNet, self).__init__()
         self.features = nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=11, stride=4, padding=2),
@@ -36,7 +37,8 @@ class AlexNet(nn.Module):
             nn.Dropout(),
             nn.Linear(4096, 4096),
             nn.ReLU(inplace=True),
-            nn.Linear(4096, num_classes),
+            nn.Linear(4096, num_classes)
+            #nn.Linear(num_classes, 10)
         )
 
     def forward(self, x):
@@ -47,12 +49,19 @@ class AlexNet(nn.Module):
 
 
 def alexnet(pretrained=False, **kwargs):
-    r"""AlexNet model architecture from the
+    """AlexNet model architecture from the
     `"One weird trick..." <https://arxiv.org/abs/1404.5997>`_ paper.
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
+    
     model = AlexNet(**kwargs)
     if pretrained:
+        #pretrained_weights = model_zoo.load_url(model_urls['alexnet'])
+        #new_dict = {k.replace('module.',''):v for k, v in pretrained_weights.items()}
+        #this_state = model.state_dict()
+        #this_state.update(new_dict)
+        #model.load_state_dict(this_state)
         model.load_state_dict(model_zoo.load_url(model_urls['alexnet']))
+    #model = model.to(device)
     return model

@@ -17,10 +17,11 @@ import torch.nn as nn
 import torch.optim as optim
 import alexnet as ax
 import time
+#from numba import cuda, cudnn
 start = time.time()
 
-cuda = torch.device('cuda')
-
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(device)
 #Get data and transform to fit alexnet ----------------------------------------
 batch_size = 64
 
@@ -61,17 +62,21 @@ al = ax.alexnet(pretrained=False)
 al.train()
 print("in Training mode")
 
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(al.parameters(), lr=0.01, momentum=0.9)
+criterion = nn.NLLLoss()
+optimizer = optim.SGD(al.parameters(), lr=0.0001, momentum=0.9)
+
 
 running_loss = 0.0
 training_dataset = enumerate(train_loader, 0)
 
 #for i, data in enumerate(train_loader, 0):
+    #training_dataset = enumerate(train_loader, 0)
 for num in range (0, 625):
     i, data = next(training_dataset)
     inputs, labels = data
     optimizer.zero_grad()
+    inputs = inputs.to(device)
+    labels = labels.to(device)
     outputs = al(inputs)
     loss = criterion(outputs, labels)
     loss.backward()
@@ -80,7 +85,8 @@ for num in range (0, 625):
     running_loss += loss.item()
     
 print('Finished Training for Train from scratch')
-# #------------------------------------------------------------------------------
+# #-----------------------------------------------------------------------------
+#training_dataset = enumerate(train_loader, 0)
 
 
 al.eval()
@@ -90,6 +96,8 @@ total = 0
 with torch.no_grad():
     for data in test_loader:
         images, labels = data
+        images = images.to(device)
+        labels = labels.to(device)
         outputs = al(images)
         _, predicted = torch.max(outputs.data, 1)
         total += labels.size(0)
@@ -111,13 +119,15 @@ for num in range (0, 156):
     al.train()
     inputs, labels = data
     optimizer.zero_grad()
+    inputs = inputs.to(device)
+    labels = labels.to(device)
     outputs = al(inputs)
     loss = criterion(outputs, labels)
     loss.backward()
     optimizer.step()
     running_loss += loss.item()
     print('Finished finetuning on one batch')
-
+    print(loss)
     #Test accuracy of all testing images overall ----------------------------------
     al.eval()
     correct = 0
@@ -125,6 +135,8 @@ for num in range (0, 156):
     with torch.no_grad():
         for data in test_loader:
             images, labels = data
+            images = images.to(device)
+            labels = labels.to(device)
             outputs = al(images)
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
@@ -136,11 +148,14 @@ for num in range (0, 156):
     y.append(accuracy)
 
     # #Test accuracy per class ------------------------------------------------------
+    
     class_correct = list(0. for i in range(10))
     class_total = list(0. for i in range(10))
     with torch.no_grad():
         for data in test_loader:
             images, labels = data
+            images = images.to(device)
+            labels = labels.to(device)
             outputs = al(images)
             _, predicted = torch.max(outputs, 1)
             c = (predicted == labels).squeeze()
@@ -149,12 +164,12 @@ for num in range (0, 156):
                 class_correct[label] += c[i].item()
                 class_total[label] += 1
 
-   # for i in range(10):
-       # if class_total[i] == 0:
-            #print('Accuracy of %5s : %2d %%' % (classes[i], 0))
-       # else:
-           # print('Accuracy of %5s : %2d %%' % (
-           # classes[i], 100 * class_correct[i] / class_total[i]))
+    for i in range(10):
+        if class_total[i] == 0:
+            print('Accuracy of %5s : %2d %%' % (classes[i], 0))
+        else:
+            print('Accuracy of %5s : %2d %%' % (
+            classes[i], 100 * class_correct[i] / class_total[i]))
     # #------------------------------------------------------------------------------
 end = time.time()
 print("time: ", end - start)

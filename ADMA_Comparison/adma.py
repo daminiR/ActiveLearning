@@ -132,129 +132,111 @@ def sortFunction(val):
 def train_model(model, criterion, optimizer, scheduler,distList, num_epochs=25):
     since = time.time()
 
-    best_model_wts = copy.deepcopy(model.statedict())
-    best_acc = 0.0
+    for phase in ['train']:
+      if phase=='train':
+          scheduler.step()
+          model.train()
+      else:
+          model.eval()
 
-    for phase in ['train','val']:
-        if phase == 'train':
-            scheduler.step()
-            model.train()
-        else:
-            model.eval()
-
-        running_loss = 0.0
-        running_corrects = 0
-        trainIterations = 0 #variable to count the number of batches that are finished with training 
-        lambdac= 0.8 #chose a random lambda value for the criterion score
-        storeImages = [] #This stores all the images and its labels in the training data set
-
+      running_loss = 0.0
+      running_corrects = 0
+      trainIterations = 0
+      lambdac= 0.8
+      storeImages = []
+      trainIlist = []
+      runningAccList = []
         #repeat until certain training loss or accuracy is reached? 
 
         #select active learning instances using critertion score 
-        if phase == train :
-            for inputs,labels in dataloaders['train']:
-                for ind in range(batch_size):
-                    storeImages.append(inputs[ind],labels[ind]) #storing all the images (individually) and labels in the training dataset.
+      if phase == 'train':
+          for inputs,labels in dataloaders['train']:
+              #print('thisis how it should look')
+              #print(inputs)
+              #print(labels)
+              for ind in range(batch_size):
+                  storeImages.append((inputs[ind],labels[ind]))
 
-            #train until accuracy of training is <= 0.7
-            running_acc = 0.0 
-            while(running_acc <= 0.7): #(Repeat Until loop in the adma paper) 
-                #calculate critertion score after every you train with a batch:
+          #train until accuracy of training is <= 0.7
+          running_acc = 0.0 
+          while(running_acc <= 0.7):
+              #calculate critertion score after every you train with a batch:
 
-                criterionScores = [] #stores criterion score and the index of the image in the training data. Since epoch shuffle is false in the dataloader the distinctiveness will be indexed corrrect and of the correct image. 
-
-                for imageNo in range(len(storeImages)): 
-                    distinctiveness = #calcDistinctiveness(imageNo) Getting the distictiveness using the index of the image in the training set. 
-                    imagecriterionScore = (1 - lambdac*trainIterations*distinctiveness,imageNo) #using only distictiveness cause we haven't done the uncertainty bit yet. 
-                    criterionScores.append(imagecriterionScore) 
-                    
-                #sort criterionScore list by first val
-                criterionScores.sort(key = sortFunction) #Sorting the criterion scores according to the criterion Score (not imageNo)
-
-                #choose the last batch_size in the training set 
-                activeLearningInputs = []
-                activeLearningLabels = []
-                for ind in range(batch_size):
-                    _, alImageNo = criterionScores.pop() #getting the last batch_size elements in the criterionScores list. We care only about the image index (imageNo) now to retrieve it from storeImages 
-                    alInput,alLabel = storeImages.pop(alImageNo)
-                    activeLearningInputs.append(alInput)
-                    activeLearningLabels.append(alLabel)
-                
-                #train the data:
-                trainIterations = trainIterations+1 
-
-                activeLearningInputs.to(device)
-                activeLearningLabels.to(device)
+              criterionScores = []
 
 
-                # zero the parameter gradients
-                optimizer.zero_grad()
+              for imageNo in range(len(storeImages)):
+                  distinctiveness = distList[imageNo]
+                  imagecriterionScore = (1 - lambdac*trainIterations*distinctiveness,imageNo)
+                  criterionScores.append(imagecriterionScore)
+                                    
+              #sort criterionScore list by first val
+              criterionScores.sort(key = sortFunction)
 
-                # forward
-                # track history if only in train
-                with torch.set_grad_enabled(phase == 'train'):
-                    outputs = model(activeLearningInputs)
-                    print(outputs)
-                    _, preds = torch.max(outputs, 1)
-                    loss = criterion(outputs, labels)
+              #choose the last batch_size in the training set 
+              activeLearningInputs = []
+              activeLearningLabels = []
+              for ind in range(batch_size):
+                  _, alImageNo = criterionScores.pop()
+                  alInput,alLabel = storeImages.pop(alImageNo)
+                  #print(alInput)
+                  #print(alLabel)
+                  activeLearningInputs.append(alInput)
+                  activeLearningLabels.append(alLabel)
+              
+              #train the data:
+              trainIterations = trainIterations+1 
 
-                loss.backward()
-                optimizer.step()
+              activeLearningInputsT = torch.stack(activeLearningInputs)
+              #print(activeLearningInputsT)
+              #print(device); 
+              activeLearningInputsT = activeLearningInputsT.to(device) 
+              activeLearningLabels = torch.stack(activeLearningLabels)
+              activeLearningLabels =  activeLearningLabels.to(device)
 
-                # statistics
-                running_loss += loss.item() * inputs.size(0)
-                running_corrects += torch.sum(preds == labels.data)
-                running_acc = running_corrects/trainIterations*batch_size
 
-                #statistic outside while loop 
-            epoch_loss = running_loss / dataset_sizes[phase]
-            epoch_acc = running_corrects / dataset_sizes[phase]
+              # zero the parameter gradients
+              optimizer.zero_grad()
 
-            # iterate over (use this now only for validation phase)
-            if phase == 'val' :
-                for inputs, labels in dataloaders['val']:
+              # forward
+              # track history if only in train
+              with torch.set_grad_enabled(phase == 'train'):
+                  outputs = model(activeLearningInputsT)
+                  #print(outputs)
+                  _, preds = torch.max(outputs, 1)
+                  loss = criterion(outputs, activeLearningLabels)
 
-                    inputs = inputs.to(device)
-                    labels = labels.to(device)
+              loss.backward()
+              optimizer.step()
 
-                    # zero the parameter gradients
-                    optimizer.zero_grad()
+              # statistics
+              running_loss += loss.item() * inputs.size(0)
+              running_corrects += torch.sum(preds == activeLearningLabels.data)
+              running_acc = running_corrects/trainIterations*batch_size
+              print(running_acc)
+              print(trainIterations)
+              trainIlist.append(trainIterations)
+              runningAccList.append(running_acc)
 
-                    # forward
-                    # track history if only in train
-                    with torch.set_grad_enabled(phase == 'train'):
-                        outputs = model(inputs)
-                        print(outputs)
-                        _, preds = torch.max(outputs, 1)
-                        loss = criterion(outputs, labels)
+            #statistic outside while loop 
+          epoch_loss = running_loss / dataset_sizes[phase]
+          epoch_acc = running_corrects / dataset_sizes[phase]
 
-                    # statistics
-                    running_loss += loss.item() * inputs.size(0)
-                    running_corrects += torch.sum(preds == labels.data)
+          print('{} loss: {:.4f} acc: {:.4f}'.format(phase, epoch_loss, epoch_acc))
+          print()
 
-                epoch_loss = running_loss / dataset_sizes[phase]
-                epoch_acc = running_corrects / dataset_sizes[phase]
-
-                print('{} loss: {:.4f} acc: {:.4f}'.format(phase, epoch_loss, epoch_acc))
-
-                # deep copy the model
-                if phase == 'val' and epoch_acc > best_acc:
-                    best_acc = epoch_acc
-                    best_model_wts = copy.deepcopy(model.statedict())
-
-            print()
+          #plotting training accuracy graph:
+          fig = plt.figure()
+          plt.plot(trainIlist,runningAccList)
+          plt.ylabel('Training Accuracy')
+          plt.xlabel('Batch No')
+          plt.title('Training Accuracy after a each batch')
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
-    print('Best val acc: {:4f}'.format(best_acc))
 
-    if 'val' not in phases:
-        return model
-
-    # laod best model weights
-    model.load_state_dict(best_model_wts)
+    # return model
     return model
-
 
 # inverse normalization
 inv_normalize = transforms.Normalize([-0.485 / 0.229, -0.456 / 0.224, -0.406 / 0.225],
@@ -278,7 +260,7 @@ data_transforms = {
 
 }
 
-data_dir_pretrained = 'centers'
+data_dir_pretrained = '/home/min/a/nrajanee/centers'
 image_datasets_pretrained = {x: datasets.ImageFolder(os.path.join(data_dir_pretrained, x), data_transforms[x]) for x in ['train']}
 class_names_pretrained = image_datasets_pretrained['train'].classes
 num_class_pretrained = len(list(class_names_pretrained))
@@ -288,7 +270,7 @@ in ['train']}
 dataset_sizes_pretrained = {x: len(image_datasets_pretrained[x]) for x in ['train']}
 
 # data_dir = 'voc'
-data_dir = '/Users/nikitarajaneesh/CAM2ActiveLearning/data/hymenoptera_data'
+data_dir = '/home/min/a/nrajanee/CAM2ActiveLearning/data/hymenoptera_data'
 image_datasets = {x: datasets.ImageFolder(os.path.join(data_dir, x), data_transforms[x]) for x in phases}
 class_names = image_datasets['train'].classes
 num_class = len(list(class_names))
@@ -374,13 +356,15 @@ print('Distinctiveness')
 # print()
 
 # TODO: set the condition of getting out of while loop
-
-def calcDistinctiveness(){
-    inputs = inputs.to(device)
+while (1):
+    distList = [0]*len(image_datasets['train'])
+    imageNo = 0
+    for inputs, labels in dataloaders['train']:
+        inputs = inputs.to(device)
         labels = labels.to(device)
 
         # forward
-        weights = model.weights
+        weights = vgg16_pretrained(inputs)
         instances_a = instances_a.to(device)
         instances_b = instances_b.to(device)
         relatives_instances_a = torch.sum((instances_a - centers_a) ** 2, 2)
@@ -391,47 +375,20 @@ def calcDistinctiveness(){
         weights.transpose_(0, 1)
         approx_patterns_instances_ab = patterns_ab @ weights
         approx_patterns_instances_ab.transpose_(0, 1)
-
+        # print(approx_patterns_instances_ab.size())
         for ind in range(batch_size):
-            tau, _ = stats.kendalltau(patterns_instances_ab[ind], approx_patterns_instances_ab[ind])
+            tau, _ = stats.kendalltau(patterns_instances_ab[ind].cpu(), approx_patterns_instances_ab[ind].cpu())
             distinctiveness = (1 - tau) / 2
-            distList[imageNo] = distinctiveness #saving distinctiveness to a list indexing it according to the order of images in the training data folder. 
+            distList[imageNo] = distinctiveness
             imageNo = imageNo + 1
             print(distinctiveness)
 
-}
 
+            # TODO: calculate uncertainty and criterion score, then select the instances with highest criterion score to train the model continuously
+            # printing distinctiveness to stdout to analyze the metrics
+    break
 
-# while (1):
-#     distList = [0]*len(image_datasets['train'])
-#     imageNo = 0
-#     for inputs, labels in dataloaders['train']:
-#         inputs = inputs.to(device)
-#         labels = labels.to(device)
-
-#         # forward
-#         weights = vgg16_pretrained(inputs)
-#         instances_a = instances_a.to(device)
-#         instances_b = instances_b.to(device)
-#         relatives_instances_a = torch.sum((instances_a - centers_a) ** 2, 2)
-#         relatives_instances_b = torch.sum((instances_b - centers_b) ** 2, 2)
-#         patterns_instances_ab = relatives_instances_a - relatives_instances_b
-#         # print(patterns_instances_ab.size())
-#         # print()
-#         weights.transpose_(0, 1)
-#         approx_patterns_instances_ab = patterns_ab @ weights
-#         approx_patterns_instances_ab.transpose_(0, 1)
-#         # print(approx_patterns_instances_ab.size())
-#         for ind in range(batch_size):
-#             tau, _ = stats.kendalltau(patterns_instances_ab[ind], approx_patterns_instances_ab[ind])
-#             distinctiveness = (1 - tau) / 2
-#             distList[imageNo] = distinctiveness #saving distinctiveness to a list indexing it according to the order of images in the training data folder. 
-#             imageNo = imageNo + 1
-#             print(distinctiveness)
-
-
-#             # TODO: calculate uncertainty and criterion score, then select the instances with highest criterion score to train the model continuously
-#             # printing distinctiveness to stdout to analyze the metrics
-#     break
-
+train_model(vgg16,criterion,optimizer,exp_lr_scheduler,distList,num_epochs = 1)
 print('Execution time: {}s'.format(time.time() - start_time))
+
+

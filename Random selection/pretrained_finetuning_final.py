@@ -10,6 +10,7 @@ Training alexnet on CIFAR10
 from torchvision import models, transforms, datasets, utils
 from torch.autograd import Variable
 import torch
+import torchvision
 from torch import utils as u
 import matplotlib.pyplot as plt
 import numpy as np
@@ -55,14 +56,31 @@ classes = ("plane", "automobile","bird", "cat", "deer",
 
 
 num_classes = 10
-# Initialize the pre-trained model
-al = ax.alexnet(pretrained=True)
-classifier = list(al.classifier.children())
-al.classifier = nn.Sequential(*classifier[:-1])
-al.classifier.add_module('6', nn.Linear(classifier[-1].in_features, num_classes))
-al = al.to(device)
 
-train_loader = torch.utils.data.DataLoader(dataset=fashion_train, batch_size=batch_size, shuffle = True)
+#VGG
+
+al = models.vgg16(pretrained=True)
+al.classifier[-1] = nn.Linear(in_features=4096, out_features=10)
+al = al.to(device)
+f = open("accuracies_pretrained_vgg.txt", "w")
+
+#RESNET
+'''
+al = models.resnet18(pretrained=True)
+al.fc= nn.Linear(in_features= 2048, out_features=10)
+al = al.to(device)
+f = open("accuracies_pretrained_resnet.txt", "w")
+'''
+
+#ALEXNET
+'''
+al = models.alexnet(pretrained=True)
+al.classifier[-1] = nn.Linear(in_features=4096, out_features=10)
+al = al.to(device)
+f = open("accuracies_pretrained_alexnet.txt", "w")
+'''
+
+train_loader = torch.utils.data.DataLoader(dataset=fashion_train, batch_size=batch_size, sampler = u.data.RandomSampler(fashion_train))
 test_loader = torch.utils.data.DataLoader(dataset=fashion_test,
                                          batch_size=batch_size,
                                          shuffle = True)
@@ -91,6 +109,8 @@ print(accuracy)
 x.append(0)
 y.append(accuracy)
 
+f.write("Batch: %d Accuracy %lf\n" %(0, accuracy))
+
 #Training ---------------------------------------------------------------------
 al.train()
 print("in Training mode")
@@ -99,10 +119,11 @@ optimizer = optim.SGD(al.parameters(), lr=0.001, momentum=0.9)
 
 
 running_loss = 0.0
-#for i, data in enumerate(train_loader, 0):
-for num in range (0, 100):
-    i, data = next(training_dataset)
+for i, data in enumerate(train_loader, 0):
+#for num in range (0, 100):
+    #i, data = next(training_dataset)
     al.train()
+    print(i)
     inputs, labels = data
     inputs = inputs.to(device)
     labels = labels.to(device)
@@ -129,35 +150,15 @@ for num in range (0, 100):
             correct += (predicted == labels).sum().item()
 
     accuracy = 100*correct/total
+    print("accuracy: ", accuracy)
     #------------------------------------------------------------------------------
     x.append(i+1)
     y.append(accuracy)
-    '''
-    # #Test accuracy per class ------------------------------------------------------
-    class_correct = list(0. for i in range(10))
-    class_total = list(0. for i in range(10))
-    with torch.no_grad():
-        for data in test_loader:
-            images, labels = data
-            images = images.to(device)
-            labels = labels.to(device)
-            outputs = al(images)
-            _, predicted = torch.max(outputs, 1)
-            c = (predicted == labels).squeeze()
-            for i in range(9):
-                label = labels[i]
-                class_correct[label] += c[i].item()
-                class_total[label] += 1
-    
-    for i in range(10):
-        if class_total[i] == 0:
-            print('Accuracy of %5s : %2d %%' % (classes[i], 0))
-        else:
-            print('Accuracy of %5s : %2d %%' % (
-            classes[i], 100 * class_correct[i] / class_total[i]))
-    '''
-    # #------------------------------------------------------------------------------
+    f.write("Batch: %d Accuracy %lf\n" %(i+1, accuracy))
+    f.flush()
+
 end = time.time()
+f.close()
 print("time: ", end - start)
 print(x)
 print(y)
