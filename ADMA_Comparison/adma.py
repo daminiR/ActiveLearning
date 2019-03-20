@@ -458,7 +458,6 @@ if __name__ == "__main__":
     # TODO: set the condition of getting out of while loop
     distList = [0]*len(image_datasets['train'])
     while (1):
-        break;
         imageNo = 0
         for inputs,labels in dataloaders['train']:
             inputs = inputs.to(device)
