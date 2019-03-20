@@ -12,6 +12,9 @@ import matplotlib.pyplot as plt
 from scipy import stats
 import uncertainty_sampling as uncertainty
 
+
+##LATEST VERSION!!!!!!
+
 start_time = time.time()
 
 phases = ['train']
@@ -132,9 +135,10 @@ def find_center(model, dataloader, num_class, class_names, means):
 
 #creates a list such that uncertainty[imageNo] = entropy
 def getIndexedUncertaintyList(uncertainty_pairs):
-    uncertainty_list = [0]*len(uncertainty_pairs)
+    uncertainty_list = [0]*len(image_datasets['train'])
     for i in range(len(uncertainty_pairs)):
-        imageNo,entropy = uncertainty_pairs[i]
+        imageNo,entropyPred = uncertainty_pairs[i]
+        entropy,_ = entropyPred
         uncertainty_list[imageNo] = entropy
 
     return uncertainty_list
@@ -145,7 +149,7 @@ def test_model(model):
     test_acc = 0.0
     total_test = 0
 
-    for i, (inputs, labels) in enumerate(dataloaders['test']): #going through all the data in the test data folder and calculating the accuracy for the current model wieghts. 
+    for inputs,labels in dataloaders['test']: #going through all the data in the test data folder and calculating the accuracy for the current model wieghts. 
 
         inputs = inputs.to(device)
         labels = labels.to(device)
@@ -219,10 +223,8 @@ def train_model(model, criterion, optimizer, scheduler,distList, num_epochs=25):
 
               for imageNo in range(len(storeImages)):
                   distinctiveness = distList[imageNo]
-                  uncertaintyVal,_ = uncertaintyList[imageNo]
-                  
+                  uncertaintyVal = uncertaintyList[imageNo]
                   print(uncertaintyVal)
-
                   if(distinctiveness != None):
                       imagecriterionScore = ((1 - lambdac*trainIterations)*distinctiveness + lambdac*trainIterations*uncertaintyVal,imageNo)
                       criterionScores.append(imagecriterionScore)
@@ -248,7 +250,7 @@ def train_model(model, criterion, optimizer, scheduler,distList, num_epochs=25):
                   distList[alImageNo] = None
                   labelledIndex = []
                   labelledIndex.append(alImageNo)
-                  M2.mark(labelledIndex)
+                  dataset.mark(labelledIndex)
                   #print(alInput)
                   #print(alLabel)
                   activeLearningInputs.append(alInput)
@@ -345,9 +347,8 @@ data_transforms = {
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ]),
 
-    'cifar10Train' : transforms.Compose(
-    [transforms.ToTensor(),
-     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
+    'test' : transforms.Compose(
+    [transforms.ToTensor()]),
 
 }
 
@@ -366,7 +367,7 @@ data_dir = '/home/min/a/nrajanee/CAM2ActiveLearning/data/hymenoptera_data'
 #class_names = image_datasets['train'].classes
 image_datasets = {}
 image_datasets['train'] = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=data_transforms['train'])
-image_datasets['test'] = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=None)
+image_datasets['test'] = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=data_transforms['test'])
 
 class_names = ['plane', 'car', 'bird', 'cat','deer', 'dog', 'frog', 'horse', 'ship', 'truck']
 num_class = len(list(class_names))
@@ -385,8 +386,13 @@ for param in vgg16_pretrained.parameters():
 torch.cuda.empty_cache()
 vgg16_pretrained = vgg16_pretrained.to(device)
 vgg16_pretrained.eval()
-vgg16 = vgg16.to(device)
 
+for param in vgg16.parameters():
+    param.requires_grad = False
+
+num_ftrs = vgg16.classifier[-1].in_features
+vgg16.classifier[-1] = nn.Linear(num_ftrs,num_class)
+vgg16 = vgg16.to(device)
 criterion = nn.CrossEntropyLoss()
 
 # observe that all parameters are being optimized
@@ -456,7 +462,6 @@ print('Distinctiveness')
 # TODO: set the condition of getting out of while loop
 distList = [0]*len(image_datasets['train'])
 while (1):
-    break;
     imageNo = 0 
     for inputs,labels in dataloaders['train']: 
         inputs = inputs.to(device)
