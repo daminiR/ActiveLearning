@@ -487,7 +487,6 @@ if __name__ == "__main__":
 
                 # TODO: calculate uncertainty and criterion score, then select the instances with highest criterion score to train the model continuously
                 # printing distinctiveness to stdout to analyze the metrics
-        break
 
     torch.cuda.empty_cache()
     train_model(vgg16,criterion,optimizer,exp_lr_scheduler,distList,num_epochs = 1)
