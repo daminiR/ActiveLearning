@@ -12,6 +12,9 @@ import matplotlib.pyplot as plt
 from scipy import stats
 import uncertainty_sampling as uncertainty
 
+
+##LATEST VERSION!!!!!!
+
 start_time = time.time()
 
 phases = ['train']
@@ -132,9 +135,10 @@ def find_center(model, dataloader, num_class, class_names, means):
 
 #creates a list such that uncertainty[imageNo] = entropy
 def getIndexedUncertaintyList(uncertainty_pairs):
-    uncertainty_list = [0]*len(uncertainty_pairs)
+    uncertainty_list = [0]*len(image_datasets['train'])
     for i in range(len(uncertainty_pairs)):
-        imageNo,entropy = uncertainty_pairs[i]
+        imageNo,entropyPred = uncertainty_pairs[i]
+        entropy,_ = entropyPred
         uncertainty_list[imageNo] = entropy
 
     return uncertainty_list
@@ -145,7 +149,11 @@ def test_model(model):
     test_acc = 0.0
     total_test = 0
 
+<<<<<<< HEAD
     for i, (inputs, labels) in enumerate(dataloaders['test']): #going through all the data in the test data folder and calculating the accuracy for the current model wieghts.
+=======
+    for inputs,labels in dataloaders['test']: #going through all the data in the test data folder and calculating the accuracy for the current model wieghts. 
+>>>>>>> eec662d20bf68992977bc15b13bbc265d0b21687
 
         inputs = inputs.to(device)
         labels = labels.to(device)
@@ -219,10 +227,13 @@ def train_model(model, criterion, optimizer, scheduler,distList, num_epochs=25):
 
               for imageNo in range(len(storeImages)):
                   distinctiveness = distList[imageNo]
+<<<<<<< HEAD
                   uncertaintyVal,_ = uncertaintyList[imageNo]
 
+=======
+                  uncertaintyVal = uncertaintyList[imageNo]
+>>>>>>> eec662d20bf68992977bc15b13bbc265d0b21687
                   print(uncertaintyVal)
-
                   if(distinctiveness != None):
                       imagecriterionScore = ((1 - lambdac*trainIterations)*distinctiveness + lambdac*trainIterations*uncertaintyVal,imageNo)
                       criterionScores.append(imagecriterionScore)
@@ -248,7 +259,7 @@ def train_model(model, criterion, optimizer, scheduler,distList, num_epochs=25):
                   distList[alImageNo] = None
                   labelledIndex = []
                   labelledIndex.append(alImageNo)
-                  M2.mark(labelledIndex)
+                  dataset.mark(labelledIndex)
                   #print(alInput)
                   #print(alLabel)
                   activeLearningInputs.append(alInput)
@@ -325,6 +336,148 @@ def train_model(model, criterion, optimizer, scheduler,distList, num_epochs=25):
 
     return model
 
+<<<<<<< HEAD
+=======
+# inverse normalization
+inv_normalize = transforms.Normalize([-0.485 / 0.229, -0.456 / 0.224, -0.406 / 0.225],
+                                     [1 / 0.229, 1 / 0.224, 1 / 0.225])
+
+data_transforms = {
+    'train': transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        # transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ]),
+
+    'val' : transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ]),
+
+    'test' : transforms.Compose(
+    [transforms.ToTensor()]),
+
+}
+
+data_dir_pretrained = '/home/min/a/nrajanee/centers'
+image_datasets_pretrained = {x: datasets.ImageFolder(os.path.join(data_dir_pretrained, x), data_transforms[x]) for x in ['train']}
+class_names_pretrained = image_datasets_pretrained['train'].classes
+num_class_pretrained = len(list(class_names_pretrained))
+dataloaders_pretrained = {
+x: torch.utils.data.DataLoader(image_datasets_pretrained[x], batch_size=batch_size, shuffle=False, num_workers=4) for x
+in ['train']}
+dataset_sizes_pretrained = {x: len(image_datasets_pretrained[x]) for x in ['train']}
+
+# data_dir = 'voc'
+data_dir = '/home/min/a/nrajanee/CAM2ActiveLearning/data/hymenoptera_data'
+#image_datasets = {x: datasets.ImageFolder(os.path.join(data_dir, x), data_transforms[x]) for x in phases}
+#class_names = image_datasets['train'].classes
+image_datasets = {}
+image_datasets['train'] = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=data_transforms['train'])
+image_datasets['test'] = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=data_transforms['test'])
+
+class_names = ['plane', 'car', 'bird', 'cat','deer', 'dog', 'frog', 'horse', 'ship', 'truck']
+num_class = len(list(class_names))
+#dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=4, shuffle=False, num_workers=4) for x in phases}
+dataloaders = {}
+dataloaders['train'] = torch.utils.data.DataLoader(image_datasets['train'], batch_size=4,shuffle=False, num_workers=0)
+dataloaders['test'] = torch.utils.data.DataLoader(image_datasets['test'], batch_size=32,shuffle=False, num_workers=0)
+dataset_sizes = {x: len(image_datasets[x]) for x in phases}
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+vgg16_pretrained = models.vgg16(pretrained=True)
+vgg16 = models.vgg16(pretrained=True)
+
+for param in vgg16_pretrained.parameters():
+    param.requires_grad = False
+
+torch.cuda.empty_cache()
+vgg16_pretrained = vgg16_pretrained.to(device)
+vgg16_pretrained.eval()
+
+for param in vgg16.parameters():
+    param.requires_grad = False
+
+num_ftrs = vgg16.classifier[-1].in_features
+vgg16.classifier[-1] = nn.Linear(num_ftrs,num_class)
+vgg16 = vgg16.to(device)
+criterion = nn.CrossEntropyLoss()
+
+# observe that all parameters are being optimized
+optimizer = optim.SGD(vgg16.parameters(), lr=0.001, momentum=0.9)
+
+# decay LR by a factor of 0.1 every 7 epochs
+exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
+
+# vgg16 = train_model(vgg16, criterion, optimizer, exp_lr_scheduler, num_epochs=25)
+
+# means = compute_mean(vgg16_pretrained, dataloaders_pretrained['train'], num_class_pretrained)
+# center_img = find_center(vgg16_pretrained, dataloaders_pretrained['train'], num_class_pretrained, class_names_pretrained, means)
+center_img = {}
+for data in dataloaders_pretrained['train']:
+    inputs, labels = data
+    for ind in range(list(inputs.size())[0]):
+        center_img[int(labels[ind])] = inputs[ind]
+
+centers_a = []
+centers_b = []
+find_centers_a = vgg16_pretrained.features[-3].register_forward_hook(hook_centers_a)
+find_centers_b = vgg16_pretrained.classifier[-4].register_forward_hook(hook_centers_b)
+
+for ind in range(num_class_pretrained):
+    # save center images
+    # torchvision.utils.save_image(inv_normalize(center_img[ind]), '{}_center.jpg'.format(class_names[ind]))
+
+    # extract outputs of center images at layer A and B as the landmarks
+    center = center_img[ind].to(device).unsqueeze(0)
+    vgg16_pretrained(center)
+
+find_centers_a.remove()
+find_centers_b.remove()
+
+# convert list to tensor
+centers_a = torch.stack(centers_a)
+centers_b = torch.stack(centers_b)
+
+relatives_a = []
+relatives_b = []
+
+for ind in range(num_class_pretrained):
+    # compute relative representations at layer A and B based on the landmarks
+    # calculate the distance between representation of center image at specific layer of one class and that of all classes
+    relative_a = torch.sum((centers_a[ind] - centers_a) ** 2, 1)
+    relative_b = torch.sum((centers_b[ind] - centers_b) ** 2, 1)
+    relatives_a.append(relative_a)
+    relatives_b.append(relative_b)
+
+# convert list to tensor
+relatives_a = torch.stack(relatives_a)
+relatives_b = torch.stack(relatives_b)
+
+# compute feature transformation pattern between each class from layer A to B
+patterns_ab = relatives_a - relatives_b
+
+instances_a = torch.zeros((4, 1, 100352))
+instances_b = torch.zeros((4, 1, 4096))
+find_instances_a = vgg16_pretrained.features[-3].register_forward_hook(hook_instances_a)
+find_instances_b = vgg16_pretrained.classifier[-4].register_forward_hook(hook_instances_b)
+
+print('Distinctiveness')
+
+# print(patterns_ab.size())
+# print()
+
+# TODO: set the condition of getting out of while loop
+distList = [0]*len(image_datasets['train'])
+while (1):
+    imageNo = 0 
+    for inputs,labels in dataloaders['train']: 
+        inputs = inputs.to(device)
+        labels = labels.to(device)
+>>>>>>> eec662d20bf68992977bc15b13bbc265d0b21687
 
 if __name__ == "__main__":
     # inverse normalization
