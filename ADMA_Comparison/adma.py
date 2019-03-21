@@ -196,7 +196,7 @@ def train_model(model, criterion, optimizer, scheduler,distList, num_epochs=25):
       runningAccList = []
       test_acc_cont = []
       test_acc = 0.0
-      dataFile = open("/local/a/cam2/data/ActiveLearning/logs/cifar10batch4Data.txt","w")
+      dataFile = open("cifar10batch4Data.txt","w")
         #repeat until certain training loss or accuracy is reached?
 
         #select active learning instances using critertion score
@@ -289,6 +289,7 @@ def train_model(model, criterion, optimizer, scheduler,distList, num_epochs=25):
               print(running_acc)
               print(trainIterations)
               dataFile.write('Batch No: {}     TrainingAccuracy: {:.4f}\n'.format(trainIterations,running_acc.double()))
+              dataFile.flush()
               test_acc = test_model(model) #calling test_model function every time a batch in training data set is used for training.
               test_acc_cont.append(test_acc)
               trainIlist.append(trainIterations)
@@ -352,7 +353,7 @@ data_transforms = {
 
 }
 
-data_dir_pretrained = '/local/a/cam2/data/ActiveLearning/centers'
+data_dir_pretrained = '/ActiveLearning/centers'
 image_datasets_pretrained = {x: datasets.ImageFolder(os.path.join(data_dir_pretrained, x), data_transforms[x]) for x in ['train']}
 class_names_pretrained = image_datasets_pretrained['train'].classes
 num_class_pretrained = len(list(class_names_pretrained))
