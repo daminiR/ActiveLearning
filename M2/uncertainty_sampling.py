@@ -12,7 +12,7 @@ from torch.optim import SGD
 from utils import progress_bar
 import shutil
 from itertools import compress
-
+import sys
 
 class UnlabelledDataset(torch.utils.data.Dataset):
     """
@@ -258,8 +258,8 @@ def test(epoch):
 if __name__ == '__main__':
     BATCH_SIZE = 64
     SAMPLE_SIZE = 64
-    NUM_CLASSES = 101
-    NUM_ITER = 1
+    
+    NUM_ITER = 100
 
     transform_train = transforms.Compose([
         transforms.Resize(227),
@@ -274,38 +274,50 @@ if __name__ == '__main__':
         transforms.ToTensor(),
         transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
     ])
-
+    
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    # dataset = UnlabelledDataset('CIFAR10', transform_train=transform_train, transform_test=transform_test, num_classes=10)
+    
+    if len(sys.argv) != 2:
+    	raise NameError('InvalidInput')
+    
+    if sys.argv[1] == 'CIFAR10':
+    	NUM_CLASSES = 10
+    	dataset = UnlabelledDataset('CIFAR10', transform_train=transform_train, transform_test=transform_test, num_classes=10)
+    	
+    elif sys.argv[1] == 'caltech_101':
+    	NUM_CLASSES = 101
+    	
+    	# Script to seperate train and test set
+    	base_path = os.getcwd()
+    	data_path = os.path.join(base_path, "caltech_101\train")
+    	categories = os.listdir(data_path)
+    	test_path = os.path.join(base_path, "caltech_101\test")
+    	for cat in categories:
+    	
+        	image_files = os.listdir(os.path.join(data_path, cat))
+        	choices = np.random.choice([0, 1], size=(len(image_files),), p=[.85, .15])
+        	files_to_move = compress(image_files, choices)
+        	for _f in files_to_move:
+            	origin_path = os.path.join(data_path, cat, _f)
+            	dest_dir = os.path.join(test_path, cat)
+            	dest_path = os.path.join(test_path, cat, _f)
+            	if not os.path.isdir(dest_dir):
+                	os.mkdir(dest_dir)
+            	shutil.move(origin_path, dest_path)
+    	dataset = UnlabelledDataset('caltech_101', transform_train=transform_train, transform_test=transform_test, num_classes=NUM_CLASSES)
+    else:
+    	raise NameError('InvalidInput')
 
-    Script to seperate train and test set
-    base_path = os.getcwd()
-    data_path = os.path.join(base_path, "caltech_101\train")
-    categories = os.listdir(data_path)
-    test_path = os.path.join(base_path, "caltech_101\test")
-    for cat in categories:
-        image_files = os.listdir(os.path.join(data_path, cat))
-        choices = np.random.choice([0, 1], size=(len(image_files),), p=[.85, .15])
-        files_to_move = compress(image_files, choices)
-        for _f in files_to_move:
-            origin_path = os.path.join(data_path, cat, _f)
-            dest_dir = os.path.join(test_path, cat)
-            dest_path = os.path.join(test_path, cat, _f)
-            if not os.path.isdir(dest_dir):
-                os.mkdir(dest_dir)
-            shutil.move(origin_path, dest_path)
-
-    dataset = UnlabelledDataset('caltech_101', transform_train=transform_train, transform_test=transform_test, num_classes=NUM_CLASSES)
+    
     chosen_dataset = LabelledDataset()
 
     testloader = torch.utils.data.DataLoader(dataset.dataset_test, batch_size=64, shuffle=True, num_workers=2)
 
     net = models.vgg16(pretrained=True)
-    # net.classifier[-1] = nn.Linear(in_features=4096, out_features=10)
-    net.classifier[-1] = nn.Linear(in_features=4096, out_features=101)
+    net.classifier[-1] = nn.Linear(in_features=4096, out_features=NUM_CLASSES)
     net.to(device)
 
-    M2 = UncertaintySampler(sample_size=SAMPLE_SIZE, iteration=1, verbose=False)
+    M2 = UncertaintySampler(sample_size=SAMPLE_SIZE, threshold=0.1, iteration=None, verbose=False)
     criterion = nn.CrossEntropyLoss()
     optimizer = SGD(net.parameters(), lr=0.001, momentum=0.9, weight_decay=5e-4)
     scheduler = StepLR(optimizer, step_size=20, gamma=0.5)
