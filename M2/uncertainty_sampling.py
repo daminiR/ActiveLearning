@@ -7,6 +7,9 @@ import os
 from math import log
 import matplotlib.pyplot as plt
 import numpy as np
+from torch.optim.lr_scheduler import StepLR
+from torch.optim import SGD
+from utils import progress_bar
 
 
 class UnlabelledDataset(torch.utils.data.Dataset):
@@ -79,6 +82,37 @@ class UnlabelledDataset(torch.utils.data.Dataset):
             self.labelled_index[i] = 0
 
 
+class LabelledDataset(torch.utils.data.Dataset):
+    """
+    Dataset class that can load either from PyTorch Library or a local folder.
+
+    Arguments:
+        1. dataset_name (String): Name of the dataset user wish to load. The local image folder should be in the
+           following format: cwd/dataset_name/train and cwd/dataset_name/test
+        2. transforms_train (Callable): A function that takes in a train image and return the transformed version.
+        3. transforms_test (Callable): A function that takes in a test image and return the transformed version.
+        4. num_classes (int): Only fill this if you are using a custom dataset that's not in PyTorch
+    """
+
+    def __init__(self, transform_train=None, transform_test=None):
+        self.transform_train = transform_train
+        self.transform_test = transform_test
+        self.data = []
+
+    def __getitem__(self, index):
+        data, label = self.data[index]
+        if self.transform_train:
+            data = self.transform_train(data)
+        return data, label
+
+    def __len__(self):
+        return len(self.dataset_train)
+
+
+    def add_data(self, data):
+        self.data.append(data)
+
+
 
 class SequentialSubsetSampler(torch.utils.data.Sampler):
     """
@@ -140,12 +174,10 @@ class UncertaintySampler:
             softmax = nn.Softmax(dim=1)
             with torch.no_grad():
                 outputs = model(data)
-                #print(torch.max(outputs))
-                # TODO: ensure results are stable
                 pred = softmax(outputs)
             uncertainty_dict = self._update_uncertainty_dict(uncertainty_dict, index, pred, num_classes)
-            # if idx+1 == self.iteration:
-            #     break
+            if idx+1 == self.iteration:
+                break
 
         uncertainty_list = sorted(uncertainty_dict.items(), key=lambda kv: (kv[1][0], kv[0]), reverse=True)
         if self.verbose:
@@ -175,29 +207,95 @@ class UncertaintySampler:
         return torch.div(torch.sum(-prediction * torch.log2(prediction), dim=1), log(num_classes, 2))
 
 
-if __name__ == '__main__':
-    SAMPLE_SIZE = 4
-    NUM_CLASSES = 10
+def train(epoch):
+    print('\nEpoch: %d' % epoch)
+    net.train()
+    train_loss = 0
+    correct = 0
+    total = 0
+    for batch_idx, (inputs, targets) in enumerate(trainloader):
+        inputs, targets = inputs.to(device), targets.to(device)
+        optimizer.zero_grad()
+        outputs = net(inputs)
+        loss = criterion(outputs, targets)
+        loss.backward()
+        optimizer.step()
 
-    transforms = transforms.Compose([
-        transforms.Resize(224),
+        train_loss += loss.item()
+        _, predicted = outputs.max(1)
+        total += targets.size(0)
+        correct += predicted.eq(targets).sum().item()
+
+        progress_bar(batch_idx, len(trainloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
+            % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
+
+def test(epoch):
+    global best_acc
+    net.eval()
+    test_loss = 0
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for batch_idx, (inputs, targets) in enumerate(testloader):
+            inputs, targets = inputs.to(device), targets.to(device)
+            outputs = net(inputs)
+            loss = criterion(outputs, targets)
+
+            test_loss += loss.item()
+            _, predicted = outputs.max(1)
+            total += targets.size(0)
+            correct += predicted.eq(targets).sum().item()
+
+            progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
+                % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
+
+
+if __name__ == '__main__':
+    BATCH_SIZE = 64
+    SAMPLE_SIZE = 128
+    NUM_CLASSES = 10
+    NUM_ITER = 1
+
+    transform_train = transforms.Compose([
+        transforms.Resize(227),
+        transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
+        transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
     ])
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    dataset = UnlabelledDataset('CIFAR10', transform_train=transforms)
-    net = models.resnet18(pretrained=True)
-    num_ftrs = net.fc.in_features
-    net.fc = nn.Linear(num_ftrs, NUM_CLASSES)
-    M2 = UncertaintySampler(sample_size=SAMPLE_SIZE, iteration=2)
+    transform_test = transforms.Compose([
+        transforms.Resize(227),
+        transforms.ToTensor(),
+        transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+    ])
 
-    # Send image number 1 to be labelled
-    labelled_index = [1]
-    dataset.mark(labelled_index)
-    uncertainty1 = M2.calculate_uncertainty(net.to(device), dataset)
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    dataset = UnlabelledDataset('CIFAR10', transform_train=transform_train, transform_test=transform_test, num_classes=10)
+    chosen_dataset = LabelledDataset(transform_train=transform_train)
 
-    # Send image number 4, 6 to be labelled
-    labelled_index = np.array([4, 6])
-    dataset.mark(labelled_index)
-    uncertainty2 = M2.calculate_uncertainty(net.to(device), dataset)
+    testloader = torch.utils.data.DataLoader(dataset.dataset_test, batch_size=64, shuffle=True, num_workers=2)
+
+    net = models.vgg16(pretrained=True)
+    net.classifier[-1] = nn.Linear(in_features=4096, out_features=10)
+
+    M2 = UncertaintySampler(sample_size=SAMPLE_SIZE, iteration=None, verbose=False)
+    criterion = nn.CrossEntropyLoss()
+    optimizer = SGD(net.parameters(), lr=0.001, momentum=0.9, weight_decay=5e-4)
+    scheduler = StepLR(optimizer, step_size=50, gamma=0.5)
+
+    for epoch in range(NUM_ITER):
+        scheduler.step()
+        chosen = M2.calculate_uncertainty(net.to(device), dataset)
+        chosen = chosen[:BATCH_SIZE]
+        print(chosen)
+        dataset.mark(chosen)
+
+        for index in chosen:
+            chosen_dataset.add_data(dataset.dataset_train[index])
+
+        trainloader = torch.utils.data.DataLoader(chosen_dataset.data, batch_size=64, shuffle=True, num_workers=2)
+        train(epoch)
+        test(epoch)
+
+
 
