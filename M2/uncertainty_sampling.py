@@ -98,19 +98,21 @@ class LabelledDataset(torch.utils.data.Dataset):
         self.transform_train = transform_train
         self.transform_test = transform_test
         self.data = []
+        self.label = []
 
     def __getitem__(self, index):
-        data, label = self.data[index]
+        data = self.data[index]
+        label = self.label[index]
         if self.transform_train:
             data = self.transform_train(data)
         return data, label
 
     def __len__(self):
-        return len(self.dataset_train)
+        return len(self.data)
 
-
-    def add_data(self, data):
+    def add_data(self, data, label):
         self.data.append(data)
+        self.label.append(label)
 
 
 
@@ -226,8 +228,8 @@ def train(epoch):
         total += targets.size(0)
         correct += predicted.eq(targets).sum().item()
 
-        progress_bar(batch_idx, len(trainloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
-            % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
+    print('Train Loss: %.3f | Acc: %.3f%% (%d/%d)'
+        % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
 
 def test(epoch):
     global best_acc
@@ -246,15 +248,16 @@ def test(epoch):
             total += targets.size(0)
             correct += predicted.eq(targets).sum().item()
 
-            progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
-                % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
-
+        print('Test Loss: %.3f | Acc: %.3f%% (%d/%d)'
+            % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
+    
+    return 100*correct/total
 
 if __name__ == '__main__':
     BATCH_SIZE = 64
-    SAMPLE_SIZE = 128
+    SAMPLE_SIZE = 64
     NUM_CLASSES = 10
-    NUM_ITER = 1
+    NUM_ITER = 150
 
     transform_train = transforms.Compose([
         transforms.Resize(227),
@@ -271,31 +274,44 @@ if __name__ == '__main__':
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     dataset = UnlabelledDataset('CIFAR10', transform_train=transform_train, transform_test=transform_test, num_classes=10)
-    chosen_dataset = LabelledDataset(transform_train=transform_train)
+    chosen_dataset = LabelledDataset()
 
     testloader = torch.utils.data.DataLoader(dataset.dataset_test, batch_size=64, shuffle=True, num_workers=2)
 
     net = models.vgg16(pretrained=True)
     net.classifier[-1] = nn.Linear(in_features=4096, out_features=10)
+    net.to(device)
 
     M2 = UncertaintySampler(sample_size=SAMPLE_SIZE, iteration=None, verbose=False)
     criterion = nn.CrossEntropyLoss()
     optimizer = SGD(net.parameters(), lr=0.001, momentum=0.9, weight_decay=5e-4)
-    scheduler = StepLR(optimizer, step_size=50, gamma=0.5)
+    scheduler = StepLR(optimizer, step_size=20, gamma=0.5)
+    outputfile = open("accuracy.txt", "w")
 
     for epoch in range(NUM_ITER):
+        torch.cuda.empty_cache()
         scheduler.step()
-        chosen = M2.calculate_uncertainty(net.to(device), dataset)
+        chosen = M2.calculate_uncertainty(net, dataset)
+
         chosen = chosen[:BATCH_SIZE]
-        print(chosen)
+        for i in range(len(chosen)):
+            chosen[i] = chosen[i][0]
         dataset.mark(chosen)
 
         for index in chosen:
-            chosen_dataset.add_data(dataset.dataset_train[index])
+            data, label,_ = dataset[index]
+            chosen_dataset.add_data(data, label)
 
-        trainloader = torch.utils.data.DataLoader(chosen_dataset.data, batch_size=64, shuffle=True, num_workers=2)
+        trainloader = torch.utils.data.DataLoader(chosen_dataset, batch_size=64, shuffle=True, num_workers=2)
         train(epoch)
-        test(epoch)
+        accuracy = test(epoch)
+        outputfile.write("%d %f\n" % (epoch+1, accuracy))
+        if accuracy > 90:
+            break
+    outputfile.close()
+    
+    torch.save(net.state_dict(), os.path.join(os.getcwd(), 'weights'))
+        
 
 
 
