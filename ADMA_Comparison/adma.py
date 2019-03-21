@@ -196,7 +196,7 @@ def train_model(model, criterion, optimizer, scheduler,distList, num_epochs=25):
       runningAccList = []
       test_acc_cont = []
       test_acc = 0.0
-      dataFile = open("cifar10batch4Data.txt","w")
+      dataFile = open("/local/a/cam2/data/ActiveLearning/logs/cifar10batch4Data.txt","w")
         #repeat until certain training loss or accuracy is reached?
 
         #select active learning instances using critertion score
@@ -207,7 +207,7 @@ def train_model(model, criterion, optimizer, scheduler,distList, num_epochs=25):
 
           #train until accuracy of training is <= 0.7
           running_acc = 0.0
-          while(running_acc <= 1):
+          while(float(running_acc) <= 1):
               #calculate critertion score after every you train with a batch:
 
               criterionScores = []
@@ -352,7 +352,7 @@ data_transforms = {
 
 }
 
-data_dir_pretrained = '/home/min/a/nrajanee/centers'
+data_dir_pretrained = '/local/a/cam2/data/ActiveLearning/centers'
 image_datasets_pretrained = {x: datasets.ImageFolder(os.path.join(data_dir_pretrained, x), data_transforms[x]) for x in ['train']}
 class_names_pretrained = image_datasets_pretrained['train'].classes
 num_class_pretrained = len(list(class_names_pretrained))
@@ -362,7 +362,7 @@ in ['train']}
 dataset_sizes_pretrained = {x: len(image_datasets_pretrained[x]) for x in ['train']}
 
 # data_dir = 'voc'
-data_dir = '/home/min/a/nrajanee/CAM2ActiveLearning/data/hymenoptera_data'
+# data_dir = '/home/min/a/nrajanee/CAM2ActiveLearning/data/hymenoptera_data'
 #image_datasets = {x: datasets.ImageFolder(os.path.join(data_dir, x), data_transforms[x]) for x in phases}
 #class_names = image_datasets['train'].classes
 image_datasets = {}
