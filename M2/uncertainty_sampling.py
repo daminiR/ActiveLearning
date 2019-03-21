@@ -259,7 +259,7 @@ if __name__ == '__main__':
     BATCH_SIZE = 64
     SAMPLE_SIZE = 64
     NUM_CLASSES = 101
-    NUM_ITER = 100
+    NUM_ITER = 1
 
     transform_train = transforms.Compose([
         transforms.Resize(227),
