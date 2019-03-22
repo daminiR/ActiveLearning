@@ -18,7 +18,7 @@ import uncertainty_sampling as uncertainty
 start_time = time.time()
 
 phases = ['train']
-batch_size = 4
+batch_size = 64
 
 # os.environ['CUDA_VISIBLE_DEVICES'] = '2'
 
@@ -207,104 +207,107 @@ def train_model(model, criterion, optimizer, scheduler,distList, num_epochs=25):
 
           #train until accuracy of training is <= 0.7
           running_acc = 0.0
-          while(running_acc  <= 0.6):
-              #calculate critertion score after every you train with a batch:
 
-              criterionScores = []
+          try:
+              while(running_acc  <= 0.6):
+                  #calculate critertion score after every you train with a batch:
 
-              # print(len(storeImages))
-              print( '-'* 10 + ' Starting Uncertainty...')
-              start = time.time()
-              uncertaintyPairs = M2.calculate_uncertainty(model,dataset, device='cuda:0')
-              end   = time.time()
-              print( '-'* 10 + ' Finished Uncertainty in {:.1f} secs'.format(end - start))
-              uncertaintyList = getIndexedUncertaintyList(uncertaintyPairs)
+                  criterionScores = []
 
-              for imageNo in range(len(storeImages)):
-                  distinctiveness = distList[imageNo]
-                  uncertaintyVal = uncertaintyList[imageNo]
-                  # print(uncertaintyVal)
-                  if(distinctiveness != None):
-                      imagecriterionScore = ((1 - lambdac*trainIterations)*distinctiveness + lambdac*trainIterations*uncertaintyVal,imageNo)
-                      criterionScores.append(imagecriterionScore)
+                  # print(len(storeImages))
+                  print( '-'* 10 + ' Starting Uncertainty...')
+                  start = time.time()
+                  uncertaintyPairs = M2.calculate_uncertainty(model,dataset, device='cuda:0')
+                  end   = time.time()
+                  print( '-'* 10 + ' Finished Uncertainty in {:.1f} secs'.format(end - start))
+                  uncertaintyList = getIndexedUncertaintyList(uncertaintyPairs)
 
-              #sort criterionScore list by first val (ascending order)
-              criterionScores.sort(key = sortFunction)
+                  for imageNo in range(len(storeImages)):
+                      distinctiveness = distList[imageNo]
+                      uncertaintyVal = uncertaintyList[imageNo]
+                      # print(uncertaintyVal)
+                      if(distinctiveness != None):
+                          imagecriterionScore = ((1 - lambdac*trainIterations)*distinctiveness + lambdac*trainIterations*uncertaintyVal,imageNo)
+                          criterionScores.append(imagecriterionScore)
 
-              #choose the last batch_size in the training set
-              activeLearningInputs = []
-              activeLearningLabels = []
-              chosenImages = []
+                  #sort criterionScore list by first val (ascending order)
+                  criterionScores.sort(key = sortFunction)
 
-              if(len(criterionScores) == 0):
-                  #no more images left to choose for AL method.
-                  break
+                  #choose the last batch_size in the training set
+                  activeLearningInputs = []
+                  activeLearningLabels = []
+                  chosenImages = []
 
-              for ind in range(batch_size):
-                  _, alImageNo = criterionScores.pop()
-                  #print('alImageNumber')
-                  #print(alImageNo)
-                  alInput,alLabel = storeImages[alImageNo]
-                  storeImages[alImageNo] = None #this is to remove all the chosen images so that it's not chosen again
-                  distList[alImageNo] = None
-                  labelledIndex = []
-                  labelledIndex.append(alImageNo)
-                  dataset.mark(labelledIndex)
-                  #print(alInput)
-                  #print(alLabel)
-                  activeLearningInputs.append(alInput)
-                  activeLearningLabels.append(alLabel)
+                  if(len(criterionScores) == 0):
+                      #no more images left to choose for AL method.
+                      break
 
-
-              #train the data:
-              trainIterations = trainIterations+1
-
-              activeLearningInputsT = torch.stack(activeLearningInputs)
-              #print(activeLearningInputsT)
-              #print(device);
-              activeLearningInputsT = activeLearningInputsT.to(device)
-              activeLearningLabels = torch.stack(activeLearningLabels)
-              activeLearningLabels =  activeLearningLabels.to(device)
+                  for ind in range(batch_size):
+                      _, alImageNo = criterionScores.pop()
+                      #print('alImageNumber')
+                      #print(alImageNo)
+                      alInput,alLabel = storeImages[alImageNo]
+                      storeImages[alImageNo] = None #this is to remove all the chosen images so that it's not chosen again
+                      distList[alImageNo] = None
+                      labelledIndex = []
+                      labelledIndex.append(alImageNo)
+                      dataset.mark(labelledIndex)
+                      #print(alInput)
+                      #print(alLabel)
+                      activeLearningInputs.append(alInput)
+                      activeLearningLabels.append(alLabel)
 
 
-              # zero the parameter gradients
-              optimizer.zero_grad()
+                  #train the data:
+                  trainIterations = trainIterations+1
 
-              # forward
-              # track history if only in train
-              with torch.set_grad_enabled(phase == 'train'):
-                  outputs = model(activeLearningInputsT)
-                  #print(outputs)
-                  _, preds = torch.max(outputs, 1)
-                  loss = criterion(outputs, activeLearningLabels)
+                  activeLearningInputsT = torch.stack(activeLearningInputs)
+                  #print(activeLearningInputsT)
+                  #print(device);
+                  activeLearningInputsT = activeLearningInputsT.to(device)
+                  activeLearningLabels = torch.stack(activeLearningLabels)
+                  activeLearningLabels =  activeLearningLabels.to(device)
 
-              loss.backward()
-              optimizer.step()
 
-              # statistics
-              running_loss += loss.item() * inputs.size(0)
-              running_corrects += torch.sum(preds == activeLearningLabels.data)
-              running_acc = int(running_corrects)/(trainIterations*batch_size)
-              print('Iter: {}, Running Corrects: {}, Running Accuracy: {}'.format(trainIterations, running_corrects, running_acc), flush=True)
-              dataFile.write('Batch No: {}     TrainingAccuracy: {:.4f}\n'.format(trainIterations,running_acc))
-              dataFile.flush()
-              # test_acc = test_model(model) #calling test_model function every time a batch in training data set is used for training.
-              # test_acc_cont.append(test_acc)
-              trainIlist.append(trainIterations)
-              runningAccList.append(running_acc)
+                  # zero the parameter gradients
+                  optimizer.zero_grad()
 
-            #statistic outside while loop
-          epoch_loss = running_loss / dataset_sizes[phase]
-          epoch_acc = running_corrects / dataset_sizes[phase]
+                  # forward
+                  # track history if only in train
+                  with torch.set_grad_enabled(phase == 'train'):
+                      outputs = model(activeLearningInputsT)
+                      #print(outputs)
+                      _, preds = torch.max(outputs, 1)
+                      loss = criterion(outputs, activeLearningLabels)
 
-          print('{} loss: {:.4f} acc: {:.4f}'.format(phase, epoch_loss, epoch_acc), flush=True)
-          print(flush=True)
-          dataFile.close()
+                  loss.backward()
+                  optimizer.step()
+
+                  # statistics
+                  running_loss += loss.item() * inputs.size(0)
+                  running_corrects += torch.sum(preds == activeLearningLabels.data)
+                  running_acc = int(running_corrects)/(trainIterations*batch_size)
+                  print('Iter: {}, Running Corrects: {}, Running Accuracy: {}'.format(trainIterations, running_corrects, running_acc), flush=True)
+                  dataFile.write('Batch No: {:>6}     Training Accuracy: {:>.4f}\n'.format(trainIterations,running_acc))
+                  dataFile.flush()
+                  # test_acc = test_model(model) #calling test_model function every time a batch in training data set is used for training.
+                  # test_acc_cont.append(test_acc)
+                  trainIlist.append(trainIterations)
+                  runningAccList.append(running_acc)
+          except:
+                #statistic outside while loop
+
+              epoch_loss = running_loss / dataset_sizes[phase]
+              epoch_acc = running_corrects / dataset_sizes[phase]
+
+              print('{} loss: {:.4f} acc: {:.4f}'.format(phase, epoch_loss, epoch_acc), flush=True)
+              print(flush=True)
+              dataFile.close()
 
           #plotting training accuracy graph:
           # fig = plt.figure()
           # plt.plot(trainIlist,runningAccList)
-          # plt.ylabel('Training Accuracy')
+          # plt.ylabedl('Training Accuracy')
           # plt.xlabel('Batch No')
           # plt.title('Training Accuracy after a each batch')
           # plt.show()
