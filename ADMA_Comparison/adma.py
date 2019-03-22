@@ -207,24 +207,23 @@ def train_model(model, criterion, optimizer, scheduler,distList, num_epochs=25):
 
           #train until accuracy of training is <= 0.7
           running_acc = 0.0
-          while(float(running_acc) <= 1):
+          while(running_acc  <= 0.6):
               #calculate critertion score after every you train with a batch:
 
               criterionScores = []
 
-              print(len(storeImages))
-
+              # print(len(storeImages))
+              print( '-'* 10 + ' Starting Uncertainty...')
+              start = time.time()
               uncertaintyPairs = M2.calculate_uncertainty(model,dataset, device='cuda:0')
-              print('uncertaintyPairs')
-              print(uncertaintyPairs[0])
+              end   = time.time()
+              print( '-'* 10 + ' Finished Uncertainty in {:.1f} secs'.format(end - start))
               uncertaintyList = getIndexedUncertaintyList(uncertaintyPairs)
-
-              print('after uncertainty')
 
               for imageNo in range(len(storeImages)):
                   distinctiveness = distList[imageNo]
                   uncertaintyVal = uncertaintyList[imageNo]
-                  print(uncertaintyVal)
+                  # print(uncertaintyVal)
                   if(distinctiveness != None):
                       imagecriterionScore = ((1 - lambdac*trainIterations)*distinctiveness + lambdac*trainIterations*uncertaintyVal,imageNo)
                       criterionScores.append(imagecriterionScore)
@@ -239,7 +238,7 @@ def train_model(model, criterion, optimizer, scheduler,distList, num_epochs=25):
 
               if(len(criterionScores) == 0):
                   #no more images left to choose for AL method.
-                  break;
+                  break
 
               for ind in range(batch_size):
                   _, alImageNo = criterionScores.pop()
@@ -285,13 +284,12 @@ def train_model(model, criterion, optimizer, scheduler,distList, num_epochs=25):
               # statistics
               running_loss += loss.item() * inputs.size(0)
               running_corrects += torch.sum(preds == activeLearningLabels.data)
-              running_acc = running_corrects.double()/(trainIterations*batch_size)
-              print(running_acc)
-              print(trainIterations)
-              dataFile.write('Batch No: {}     TrainingAccuracy: {:.4f}\n'.format(trainIterations,running_acc.double()))
+              running_acc = int(running_corrects)/(trainIterations*batch_size)
+              print('Iter: {}, Running Corrects: {}, Running Accuracy: {}'.format(trainIterations, running_corrects, running_acc), flush=True)
+              dataFile.write('Batch No: {}     TrainingAccuracy: {:.4f}\n'.format(trainIterations,running_acc))
               dataFile.flush()
-              test_acc = test_model(model) #calling test_model function every time a batch in training data set is used for training.
-              test_acc_cont.append(test_acc)
+              # test_acc = test_model(model) #calling test_model function every time a batch in training data set is used for training.
+              # test_acc_cont.append(test_acc)
               trainIlist.append(trainIterations)
               runningAccList.append(running_acc)
 
@@ -299,29 +297,31 @@ def train_model(model, criterion, optimizer, scheduler,distList, num_epochs=25):
           epoch_loss = running_loss / dataset_sizes[phase]
           epoch_acc = running_corrects / dataset_sizes[phase]
 
-          print('{} loss: {:.4f} acc: {:.4f}'.format(phase, epoch_loss, epoch_acc))
-          print()
+          print('{} loss: {:.4f} acc: {:.4f}'.format(phase, epoch_loss, epoch_acc), flush=True)
+          print(flush=True)
           dataFile.close()
 
           #plotting training accuracy graph:
-          fig = plt.figure()
-          plt.plot(trainIlist,runningAccList)
-          plt.ylabel('Training Accuracy')
-          plt.xlabel('Batch No')
-          plt.title('Training Accuracy after a each batch')
-          plt.show()
-          plt.close(fig)
+          # fig = plt.figure()
+          # plt.plot(trainIlist,runningAccList)
+          # plt.ylabel('Training Accuracy')
+          # plt.xlabel('Batch No')
+          # plt.title('Training Accuracy after a each batch')
+          # plt.show()
+          # plt.close(fig)
+          #
+          # #plotting testing accuracy graph:
+          # fig2 = plt.figure()
+          # plt.plot(trainIlist,test_acc_cont)
+          # plt.ylabel('Testing Accuracy')
+          # plt.xlabel('Batch No')
+          # plt.title('Testing Accuracy after a each batch')
+          # plt.show()
 
-          #plotting testing accuracy graph:
-          fig2 = plt.figure()
-          plt.plot(trainIlist,test_acc_cont)
-          plt.ylabel('Testing Accuracy')
-          plt.xlabel('Batch No')
-          plt.title('Testing Accuracy after a each batch')
-          plt.show()
+
 
     time_elapsed = time.time() - since
-    print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
+    print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60), flush=True)
 
     # return model
     torch.save(model.state_dict(),"cifar10batch4Model.pt")
@@ -367,8 +367,8 @@ dataset_sizes_pretrained = {x: len(image_datasets_pretrained[x]) for x in ['trai
 #image_datasets = {x: datasets.ImageFolder(os.path.join(data_dir, x), data_transforms[x]) for x in phases}
 #class_names = image_datasets['train'].classes
 image_datasets = {}
-image_datasets['train'] = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=data_transforms['train'])
-image_datasets['test'] = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=data_transforms['test'])
+image_datasets['train'] = torchvision.datasets.CIFAR10(root='CIFAR10', train=True, download=True, transform=data_transforms['train'])
+image_datasets['test'] = torchvision.datasets.CIFAR10(root='CIFAR10', train=False, download=True, transform=data_transforms['test'])
 
 class_names = ['plane', 'car', 'bird', 'cat','deer', 'dog', 'frog', 'horse', 'ship', 'truck']
 num_class = len(list(class_names))
@@ -486,7 +486,7 @@ while (1):
             distinctiveness = (1 - tau) / 2
             distList[imageNo] = distinctiveness
             imageNo = imageNo + 1
-            print(distinctiveness)
+            # print(distinctiveness)
 
 
             # TODO: calculate uncertainty and criterion score, then select the instances with highest criterion score to train the model continuously
