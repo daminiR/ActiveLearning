@@ -485,13 +485,13 @@ while (1):
         relatives_instances_b = []
         division_size = 4
         for i in range(division_size):
-            instance_a = instances_a[i:i + (batch_size/division_size) - 1]
-            center_a = centers_a[i:i + (batch_size/division_size) - 1]
+            instance_a = instances_a[int(i):int(i + (batch_size/division_size) - 1)]
+            center_a = centers_a[int(i):int(i + (batch_size/division_size) - 1)]
             distance_a = torch.sum((instance_a - center_a) ** 2, 2)
             relatives_instances_a.append(distance_a)
         for i in range(division_size):
-            instance_b = instances_b[i:i + (batch_size/division_size) - 1]
-            center_b = centers_b[i:i + (batch_size/division_size) - 1]
+            instance_b = instances_b[int(i):int(i + (batch_size/division_size) - 1)]
+            center_b = centers_b[int(i):int(i + (batch_size/division_size) - 1)]
             distance_b = torch.sum((instance_b - center_b) ** 2, 2)
             relatives_instances_b.append(distance_b)
         relatives_instances_a = torch.stack(relatives_instances_a)
