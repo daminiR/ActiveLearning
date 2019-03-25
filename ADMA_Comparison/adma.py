@@ -484,18 +484,20 @@ while (1):
         relatives_instances_a = []
         relatives_instances_b = []
         division_size = 4
+        print(centers_b.size())
+        print(instances_b.size())
         for i in range(division_size):
-            instance_a = instances_a[int(i):int(i + (batch_size/division_size) - 1)]
-            center_a = centers_a[int(i):int(i + (batch_size/division_size) - 1)]
-            distance_a = torch.sum((instance_a - center_a) ** 2, 2)
+            lower_ind = int(i * batch_size / division_size)
+            instance_a = instances_a[int(lower_ind):int(lower_ind + (batch_size/division_size))]
+            distance_a = torch.sum((instance_a - centers_a) ** 2, 2)
             relatives_instances_a.append(distance_a)
         for i in range(division_size):
-            instance_b = instances_b[int(i):int(i + (batch_size/division_size) - 1)]
-            center_b = centers_b[int(i):int(i + (batch_size/division_size) - 1)]
-            distance_b = torch.sum((instance_b - center_b) ** 2, 2)
+            lower_ind = int(i * batch_size / division_size)
+            instance_b = instances_b[int(lower_ind):int(lower_ind + (batch_size/division_size))]
+            distance_b = torch.sum((instance_b - centers_b) ** 2, 2)
             relatives_instances_b.append(distance_b)
-        relatives_instances_a = torch.stack(relatives_instances_a)
-        relatives_instances_b = torch.stack(relatives_instances_b)
+        relatives_instances_a = torch.cat(relatives_instances_a, 0)
+        relatives_instances_b = torch.cat(relatives_instances_b, 0)
         #relatives_instances_a = torch.sum((instances_a - centers_a) ** 2, 2)
         #relatives_instances_b = torch.sum((instances_b - centers_b) ** 2, 2)
         patterns_instances_ab = relatives_instances_a - relatives_instances_b
@@ -504,7 +506,8 @@ while (1):
         weights.transpose_(0, 1)
         approx_patterns_instances_ab = patterns_ab @ weights
         approx_patterns_instances_ab.transpose_(0, 1)
-        # print(approx_patterns_instances_ab.size())
+        print(patterns_instances_ab[0].size())
+        #print(approx_patterns_instances_ab.size())
         for ind in range(batch_size):
             tau, _ = stats.kendalltau(patterns_instances_ab[ind].cpu(), approx_patterns_instances_ab[ind].cpu())
             distinctiveness = (1 - tau) / 2
