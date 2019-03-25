@@ -459,8 +459,8 @@ relatives_b = torch.stack(relatives_b)
 # compute feature transformation pattern between each class from layer A to B
 patterns_ab = relatives_a - relatives_b
 
-instances_a = torch.zeros((4, 1, 100352))
-instances_b = torch.zeros((4, 1, 4096))
+instances_a = torch.zeros((batch_size, 1, 100352))
+instances_b = torch.zeros((batch_size, 1, 4096))
 find_instances_a = vgg16_pretrained.features[-3].register_forward_hook(hook_instances_a)
 find_instances_b = vgg16_pretrained.classifier[-4].register_forward_hook(hook_instances_b)
 
