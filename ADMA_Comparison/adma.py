@@ -11,7 +11,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from scipy import stats
 import uncertainty_sampling as uncertainty
-
+import signal
 
 ##LATEST VERSION!!!!!!
 
@@ -331,6 +331,12 @@ def train_model(model, criterion, optimizer, scheduler,distList, num_epochs=25):
 
     return model
 
+
+
+def signal_term_handler(signal, frame):
+    global vgg16
+
+
 # inverse normalization
 inv_normalize = transforms.Normalize([-0.485 / 0.229, -0.456 / 0.224, -0.406 / 0.225],
                                      [1 / 0.229, 1 / 0.224, 1 / 0.225])
@@ -377,7 +383,7 @@ class_names = ['plane', 'car', 'bird', 'cat','deer', 'dog', 'frog', 'horse', 'sh
 num_class = len(list(class_names))
 #dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=4, shuffle=False, num_workers=4) for x in phases}
 dataloaders = {}
-dataloaders['train'] = torch.utils.data.DataLoader(image_datasets['train'], batch_size=4,shuffle=False, num_workers=0)
+dataloaders['train'] = torch.utils.data.DataLoader(image_datasets['train'], batch_size=batch_size, shuffle=False, num_workers=0)
 dataloaders['test'] = torch.utils.data.DataLoader(image_datasets['test'], batch_size=32,shuffle=False, num_workers=0)
 dataset_sizes = {x: len(image_datasets[x]) for x in phases}
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
