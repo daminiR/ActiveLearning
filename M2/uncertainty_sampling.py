@@ -12,7 +12,7 @@ from torch.optim import SGD
 from utils import progress_bar
 import shutil
 from itertools import compress
-
+import sys
 
 class UnlabelledDataset(torch.utils.data.Dataset):
     """
@@ -32,27 +32,27 @@ class UnlabelledDataset(torch.utils.data.Dataset):
         if dataset_name in available_datasets:
             if dataset_name == 'MNIST':
                 self.dataset_train = datasets.MNIST(root=os.path.join(os.getcwd(), dataset_name),
-                                                    train=True, download=True)
+                        train=True, download=True)
                 self.dataset_test = datasets.MNIST(root=os.path.join(os.getcwd(), dataset_name),
-                                                   train=False, download=True, transform=transform_test)
+                        train=False, download=True, transform=transform_test)
                 self.num_classes = 10
             if dataset_name == 'FashionMNIST':
                 self.dataset_train = datasets.FashionMNIST(root=os.path.join(os.getcwd(), dataset_name),
-                                                           train=True, download=True)
+                        train=True, download=True)
                 self.dataset_test = datasets.FashionMNIST(root=os.path.join(os.getcwd(), dataset_name),
-                                                          train=False, download=True, transform=transform_test)
+                        train=False, download=True, transform=transform_test)
                 self.num_classes = 10
             if dataset_name == 'CIFAR10':
                 self.dataset_train = datasets.CIFAR10(root=os.path.join(os.getcwd(), dataset_name),
-                                                      train=True, download=True)
+                        train=True, download=True)
                 self.dataset_test = datasets.CIFAR10(root=os.path.join(os.getcwd(), dataset_name),
-                                                     train=False, download=True, transform=transform_test)
+                        train=False, download=True, transform=transform_test)
                 self.num_classes = 10
             if dataset_name == 'CIFAR100':
                 self.dataset_train = datasets.CIFAR100(root=os.path.join(os.getcwd(), dataset_name),
-                                                       train=True, download=True)
+                        train=True, download=True)
                 self.dataset_test = datasets.CIFAR100(root=os.path.join(os.getcwd(), dataset_name),
-                                                      train=False, download=True, transform=transform_test)
+                        train=False, download=True, transform=transform_test)
                 self.num_classes = 100
         else:
             path = os.path.join(os.getcwd(), dataset_name)
@@ -75,7 +75,7 @@ class UnlabelledDataset(torch.utils.data.Dataset):
 
     Arguments:
         1. index (list-like): index of the current set of images sent to be labelled. 
-    
+
     Return:
         Void
     """
@@ -160,14 +160,14 @@ class UncertaintySampler:
     Arguments:
         1. model (Model)              : Current model
         2. dataset (UnlabelledDataset): The target domain dataset
-    
+
     Return:
         1. List of tuples in the format [(index, (entropy, tensor), (index, (entropy, tensor)),..]
     """
 
     def calculate_uncertainty(self, model, dataset):
         loader = torch.utils.data.DataLoader(dataset, batch_size=self.sample_size,
-                                             sampler=SequentialSubsetSampler(np.where(dataset.labelled_index)[0]))
+                sampler=SequentialSubsetSampler(np.where(dataset.labelled_index)[0]))
         uncertainty_dict = {}
         model.eval()
         num_classes = dataset.num_classes
@@ -180,22 +180,19 @@ class UncertaintySampler:
                 outputs = model(data)
                 pred = softmax(outputs)
             uncertainty_dict = self._update_uncertainty_dict(uncertainty_dict, index, pred, num_classes)
-            if idx+1 == self.iteration:
-                break
 
         uncertainty_list = sorted(uncertainty_dict.items(), key=lambda kv: (kv[1][0], kv[0]), reverse=True)
         if self.verbose:
             print(uncertainty_list)
             imageData, _ = (next(iter(uncertainty_list))[1])
             self._visualize_image(dataset[next(iter(uncertainty_list))[0]][0],
-                                  'Most Uncertain Image, Entropy = %.3f' % imageData)
-        return uncertainty_list
+                    'Most Uncertain Image, Entropy = %.3f' % imageData)
+            return uncertainty_list
 
     def _update_uncertainty_dict(self, uncertainty_dict, index, prediction, num_classes):
         uncertainty = self._entropy(prediction, num_classes)
         for key, value in enumerate(uncertainty):
-            if value > self.threshold:
-                uncertainty_dict[int(index[key:key + 1])] = (float(value), prediction[key])
+            uncertainty_dict[int(index[key:key + 1])] = (float(value), prediction[key])
         return uncertainty_dict
 
     @staticmethod
@@ -231,7 +228,7 @@ def train(epoch):
         correct += predicted.eq(targets).sum().item()
 
     print('Train Loss: %.3f | Acc: %.3f%% (%d/%d)'
-        % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
+            % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
 
 def test(epoch):
     global best_acc
@@ -251,14 +248,14 @@ def test(epoch):
             correct += predicted.eq(targets).sum().item()
 
         print('Test Loss: %.3f | Acc: %.3f%% (%d/%d)'
-            % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
-    
-    return 100*correct/total
+                % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
+
+        return 100*correct/total
 
 if __name__ == '__main__':
     BATCH_SIZE = 64
     SAMPLE_SIZE = 64
-    NUM_CLASSES = 101
+
     NUM_ITER = 100
 
     transform_train = transforms.Compose([
@@ -267,45 +264,60 @@ if __name__ == '__main__':
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
-    ])
+        ])
 
     transform_test = transforms.Compose([
         transforms.Resize(227),
+        transforms.CenterCrop(size=224),
         transforms.ToTensor(),
         transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
-    ])
+        ])
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    # dataset = UnlabelledDataset('CIFAR10', transform_train=transform_train, transform_test=transform_test, num_classes=10)
 
-    Script to seperate train and test set
-    base_path = os.getcwd()
-    data_path = os.path.join(base_path, "caltech_101\train")
-    categories = os.listdir(data_path)
-    test_path = os.path.join(base_path, "caltech_101\test")
-    for cat in categories:
-        image_files = os.listdir(os.path.join(data_path, cat))
-        choices = np.random.choice([0, 1], size=(len(image_files),), p=[.85, .15])
-        files_to_move = compress(image_files, choices)
-        for _f in files_to_move:
-            origin_path = os.path.join(data_path, cat, _f)
-            dest_dir = os.path.join(test_path, cat)
-            dest_path = os.path.join(test_path, cat, _f)
-            if not os.path.isdir(dest_dir):
-                os.mkdir(dest_dir)
-            shutil.move(origin_path, dest_path)
+    if len(sys.argv) != 2:
+        raise NameError('InvalidInput')
 
-    dataset = UnlabelledDataset('caltech_101', transform_train=transform_train, transform_test=transform_test, num_classes=NUM_CLASSES)
+    if sys.argv[1] == 'CIFAR10':
+        NUM_CLASSES = 10
+        dataset = UnlabelledDataset('CIFAR10', transform_train=transform_train, transform_test=transform_test, num_classes=10)
+
+    elif sys.argv[1] == 'caltech_101':
+        NUM_CLASSES = 102
+
+        # Script to seperate train and test set
+        base_path = os.getcwd()
+        data_path = os.path.join(base_path, "caltech_101/train")
+        categories = os.listdir(data_path)
+        test_path = os.path.join(base_path, "caltech_101/test")
+        if os.listdir(test_path) == []:
+            for cat in categories:
+            
+                image_files = os.listdir(os.path.join(data_path, cat))
+                choices = np.random.choice([0, 1], size=(len(image_files),), p=[.85, .15])
+                files_to_move = compress(image_files, choices)
+                for _f in files_to_move:
+                    origin_path = os.path.join(data_path, cat, _f)
+                    dest_dir = os.path.join(test_path, cat)
+                    dest_path = os.path.join(test_path, cat, _f)
+                    if not os.path.isdir(dest_dir):
+                        os.mkdir(dest_dir)
+                    shutil.move(origin_path, dest_path)
+        dataset = UnlabelledDataset('caltech_101', transform_train=transform_train, transform_test=transform_test, num_classes=NUM_CLASSES)
+    else:
+        raise NameError('InvalidInput')
+
+
     chosen_dataset = LabelledDataset()
 
-    testloader = torch.utils.data.DataLoader(dataset.dataset_test, batch_size=64, shuffle=True, num_workers=2)
+    testloader = torch.utils.data.DataLoader(dataset.dataset_test, batch_size=SAMPLE_SIZE, shuffle=True, num_workers=2)
 
     net = models.vgg16(pretrained=True)
-    # net.classifier[-1] = nn.Linear(in_features=4096, out_features=10)
-    net.classifier[-1] = nn.Linear(in_features=4096, out_features=101)
+    net.classifier[-1] = nn.Linear(in_features=4096, out_features=NUM_CLASSES)
     net.to(device)
 
-    M2 = UncertaintySampler(sample_size=SAMPLE_SIZE, iteration=1, verbose=False)
+    M2 = UncertaintySampler(sample_size=SAMPLE_SIZE, threshold=0, iteration=None, verbose=False)
+    print(M2)
     criterion = nn.CrossEntropyLoss()
     optimizer = SGD(net.parameters(), lr=0.001, momentum=0.9, weight_decay=5e-4)
     scheduler = StepLR(optimizer, step_size=20, gamma=0.5)
@@ -320,21 +332,22 @@ if __name__ == '__main__':
         for i in range(len(chosen)):
             chosen[i] = chosen[i][0]
         dataset.mark(chosen)
+        print(chosen)
 
         for index in chosen:
             data, label,_ = dataset[index]
             chosen_dataset.add_data(data, label)
 
-        trainloader = torch.utils.data.DataLoader(chosen_dataset, batch_size=64, shuffle=True, num_workers=2)
+        trainloader = torch.utils.data.DataLoader(chosen_dataset, batch_size=SAMPLE_SIZE, shuffle=True, num_workers=2)
         train(epoch)
         accuracy = test(epoch)
         outputfile.write("%d %f\n" % (epoch+1, accuracy))
         if accuracy > 90:
             break
     outputfile.close()
-    
+
     torch.save(net.state_dict(), os.path.join(os.getcwd(), 'weights'))
-        
+
 
 
 
