@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from scipy import stats
 import uncertainty_sampling as uncertainty
 import signal
-
+import sys
 ##LATEST VERSION!!!!!!
 
 start_time = time.time()
@@ -31,9 +31,13 @@ def hook_centers_b(module, inputs, outputs):
 
 
 def hook_instances_a(module, inputs, outputs):
-    instances_a.copy_(outputs.view(list(outputs.size())[0], -1).unsqueeze(1))
-
-
+    try:
+        instances_a.copy_(outputs.view(list(outputs.size())[0], -1).unsqueeze(1))
+    except Exception as e:
+        print('output size is {}'.format(outputs.size()))
+        print('instances_a size is {}'.format(instances_a.size()))
+        print('expanded output size is {}'.format(outputs.view(list(outputs.size())[0], -1).unsqueeze(1).size()))
+        raise e
 def hook_instances_b(module, inputs, outputs):
     instances_b.copy_(outputs.view(list(outputs.size())[0], -1).unsqueeze(1))
 
@@ -287,14 +291,15 @@ def train_model(model, criterion, optimizer, scheduler,distList, num_epochs=25):
                   running_loss += loss.item() * inputs.size(0)
                   running_corrects += torch.sum(preds == activeLearningLabels.data)
                   running_acc = int(running_corrects)/(trainIterations*batch_size)
-                  print('Iter: {}, Running Corrects: {}, Running Accuracy: {}'.format(trainIterations, running_corrects, running_acc), flush=True)
-                  dataFile.write('Batch No: {:>6}     Training Accuracy: {:>.4f}\n'.format(trainIterations,running_acc))
+                  test_acc = test_model(model) #calling test_model function every time a batch in training data set is used for training.
+
+                  print('Iter: {}, Running Corrects: {}, Running Accuracy: {} Test Accurac: {}'.format(trainIterations, running_corrects, running_acc, test_acc), flush=True)
+                  dataFile.write('Batch No: {:>6}     Training Accuracy: {:>.4f}    Testing Accuracy: {:>.4f}\n'.format(trainIterations,running_acc, test_acc))
                   dataFile.flush()
-                  # test_acc = test_model(model) #calling test_model function every time a batch in training data set is used for training.
                   # test_acc_cont.append(test_acc)
                   trainIlist.append(trainIterations)
                   runningAccList.append(running_acc)
-          except:
+          except Exception as e:
                 #statistic outside while loop
 
               epoch_loss = running_loss / dataset_sizes[phase]
@@ -303,6 +308,7 @@ def train_model(model, criterion, optimizer, scheduler,distList, num_epochs=25):
               print('{} loss: {:.4f} acc: {:.4f}'.format(phase, epoch_loss, epoch_acc), flush=True)
               print(flush=True)
               dataFile.close()
+              raise e
 
           #plotting training accuracy graph:
           # fig = plt.figure()
@@ -358,12 +364,13 @@ if __name__=="__main__":
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ]),
 
-        'test' : transforms.Compose(
-        [transforms.ToTensor()]),
+        'test' : transforms.Compose([
+            transforms.Resize(224),
+            transforms.ToTensor()]),
 
     }
 
-    data_dir_pretrained = 'C:/Users/Damini/centers/centers'
+    data_dir_pretrained = sys.argv[1]
     image_datasets_pretrained = {x: datasets.ImageFolder(os.path.join(data_dir_pretrained, x), data_transforms[x]) for x in ['train']}
     class_names_pretrained = image_datasets_pretrained['train'].classes
     num_class_pretrained = len(list(class_names_pretrained))
@@ -384,7 +391,7 @@ if __name__=="__main__":
     num_class = len(list(class_names))
     #dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=4, shuffle=False, num_workers=4) for x in phases}
     dataloaders = {}
-    dataloaders['train'] = torch.utils.data.DataLoader(image_datasets['train'], batch_size=batch_size, shuffle=False, num_workers=0)
+    dataloaders['train'] = torch.utils.data.DataLoader(image_datasets['train'], batch_size=batch_size, shuffle=False, num_workers=0, drop_last=True)
     dataloaders['test'] = torch.utils.data.DataLoader(image_datasets['test'], batch_size=32,shuffle=False, num_workers=0)
     dataset_sizes = {x: len(image_datasets[x]) for x in phases}
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -466,7 +473,7 @@ if __name__=="__main__":
     find_instances_b = vgg16_pretrained.classifier[-4].register_forward_hook(hook_instances_b)
 
     print('Distinctiveness')
-
+    print('Num of Batches {}'.format(len(dataloaders['train'])))
     # print(patterns_ab.size())
     # print()
 
@@ -485,8 +492,7 @@ if __name__=="__main__":
             relatives_instances_a = []
             relatives_instances_b = []
             division_size = 8
-            print(centers_b.size())
-            print(instances_b.size())
+            #print('instances a size: {}'.format(instances_a.size()))
             for i in range(division_size):
                 lower_ind = int(i * batch_size / division_size)
                 instance_a = instances_a[int(lower_ind):int(lower_ind + (batch_size/division_size))]
@@ -507,7 +513,6 @@ if __name__=="__main__":
             weights.transpose_(0, 1)
             approx_patterns_instances_ab = patterns_ab @ weights
             approx_patterns_instances_ab.transpose_(0, 1)
-            print(patterns_instances_ab[0].size())
             #print(approx_patterns_instances_ab.size())
             for ind in range(batch_size):
                 tau, _ = stats.kendalltau(patterns_instances_ab[ind].cpu(), approx_patterns_instances_ab[ind].cpu())
