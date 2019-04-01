@@ -187,7 +187,7 @@ class UncertaintySampler:
             imageData, _ = (next(iter(uncertainty_list))[1])
             self._visualize_image(dataset[next(iter(uncertainty_list))[0]][0],
                     'Most Uncertain Image, Entropy = %.3f' % imageData)
-            return uncertainty_list
+        return uncertainty_list
 
     def _update_uncertainty_dict(self, uncertainty_dict, index, prediction, num_classes):
         uncertainty = self._entropy(prediction, num_classes)
@@ -312,12 +312,12 @@ if __name__ == '__main__':
 
     testloader = torch.utils.data.DataLoader(dataset.dataset_test, batch_size=SAMPLE_SIZE, shuffle=True, num_workers=2)
 
-    net = models.vgg16(pretrained=True)
+    net = models.vgg16()
+    net = torch.load(os.path.join(os.getcwd(), 'vgg16_cifar100_pretrained.pt'))
     net.classifier[-1] = nn.Linear(in_features=4096, out_features=NUM_CLASSES)
     net.to(device)
 
     M2 = UncertaintySampler(sample_size=SAMPLE_SIZE, threshold=0, iteration=None, verbose=False)
-    print(M2)
     criterion = nn.CrossEntropyLoss()
     optimizer = SGD(net.parameters(), lr=0.001, momentum=0.9, weight_decay=5e-4)
     scheduler = StepLR(optimizer, step_size=20, gamma=0.5)
@@ -332,7 +332,6 @@ if __name__ == '__main__':
         for i in range(len(chosen)):
             chosen[i] = chosen[i][0]
         dataset.mark(chosen)
-        print(chosen)
 
         for index in chosen:
             data, label,_ = dataset[index]
